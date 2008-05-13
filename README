@@ -1,0 +1,4 @@
+Author: John Whitney (jjw@deltup.org)
+License: GNU General Public License v2
+
+	BDelta is an advanced delta creator, patcher, and library.  This code is still beta quality, so don't expect too much!  It might not even produce correct deltas in some cases.  You can find the output format in file "Format"

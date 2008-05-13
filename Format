@@ -1,0 +1,12 @@
+(All numbers are stored in little-endian format)
+char[3] magic "BDT"
+unsigned short version;
+unsigned char intsize; (remaining ints are all unsigned and "intsize" bytes)
+unsigned file 1 size
+unsigned file 2 size
+unsigned number of matches
+for (number of matches) {
+	unsigned match relative location 1 (this value can represent a negative)
+	unsigned match relative location 2
+	unsigned match size
+}
