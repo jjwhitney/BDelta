@@ -1,4 +1,4 @@
-/* Copyright (C) 2003-2008  John Whitney
+/* Copyright (C) 2003-2010  John Whitney
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -49,6 +49,7 @@ public:
 		}
 		buf[0]=lastbuf;
 		bufplace[0]=place;
+		// NB: if ftell(f)==place, this has no effect.
 		fseek(f, place, SEEK_SET);
 		fread(buf[0], 1, bufsize, f);
 		return buf[0];
@@ -87,7 +88,7 @@ int main(int argc, char **argv) {
 	unsigned copyloc1[nummatches+1];
 	unsigned copyloc2[nummatches+1];
 	unsigned copynum[nummatches+1];
-  
+
 	FILE *fout = fopen(argv[3], "wb");
 	if (!fout) {
 		printf("couldn't open output file\n");
@@ -128,6 +129,10 @@ int main(int argc, char **argv) {
 // write_unsigned_list(adds, nummatches+1, fout);
 // write_unsigned_list(copynum, nummatches, fout);
 // write_signed_list(copyloc, nummatches, fout);
+
+//  fwrite(copyloc1, 4, nummatches, fout);
+//  fwrite(copyloc2, 4, nummatches, fout);
+//  fwrite(copynum, 4, nummatches, fout);
 	unsigned fp = 0;
 	for (int i = 0; i < nummatches; ++i) {
 		unsigned num = copyloc2[i];
@@ -144,9 +149,9 @@ int main(int argc, char **argv) {
 	}
  
 	fclose(fout);
-  
+
 	bdelta_done_alg(b);
-  
+
 	delete f1;
 	delete f2;
 }
