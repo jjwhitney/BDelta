@@ -65,8 +65,10 @@ struct Checksums_Instance {
 
 
 unsigned match_buf_forward(void *buf1, void *buf2, unsigned num) { 
-	unsigned  i = 0;
+	unsigned i = 0;
 	while (i<num && (unsigned*)((char*)buf1+i)==(unsigned*)((char*)buf2+i)) i += sizeof(unsigned);
+	if (i>=num)
+		return num;
 	while (i<num && ((byte*)buf1)[i]==((byte*)buf2)[i]) ++i;
 	return i;
 }
@@ -273,15 +275,8 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 		unused[numunused++] = Range(l->obj->p1, l->obj->num);
 
 	qsort(unused, numunused, sizeof(Range), comparep1);
-/*
-	for (int i = 0; i < numunused; ++i) 
-		for (int j = i+1; j < numunused; ++j)
-			if (unused[i].p > unused[j].p) {
-				Range temp = unused[i];
-				unused[i] = unused[j];
-				unused[j] = temp;
-			}
-*/
+	// Trick loop below into including the free range at the end.
+	unused[numunused++] = Range(b->f1_size, b->f1_size);
 
 	unsigned last = 0;
 	unsigned missing = 0;
@@ -294,7 +289,6 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 		last = nextstart;
 	}
 	numunused-=missing;
-	unused[numunused++] = Range(last, b->f1_size-last);
 
 
 
