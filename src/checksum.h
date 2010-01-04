@@ -15,7 +15,7 @@
 
 typedef unsigned long long Checksum;
 
-Checksum pow(Checksum x, unsigned y) {
+Checksum powChecksum(Checksum x, unsigned y) {
   Checksum res = 1;
   while (y) {
     if (y&1) res*=x;
@@ -34,7 +34,7 @@ struct ChecksumManager {
 
 	ChecksumManager(int blocksize) {
 		this->blocksize = blocksize;
-		oldCoefficient = pow(multiplyamount, blocksize);
+		oldCoefficient = powChecksum(multiplyamount, blocksize);
 	}
 
 	Checksum evaluateBlock(byte *buf) {

@@ -5,7 +5,7 @@ LIBDIR=${PREFIX}/lib
 CXXFLAGS=-O2
 
 all: bpatch libbdelta.so bdelta
-libbdelta.so: libbdelta.cpp container.h
+libbdelta.so: libbdelta.cpp container.h checksum.h file.h
 	${CC} -shared -fPIC ${CXXFLAGS} $< -o $@
 bdelta: bdelta.cpp container.h file.h
 	${CC} $< -o $@ ${CXXFLAGS} -L. -lbdelta -lstdc++
