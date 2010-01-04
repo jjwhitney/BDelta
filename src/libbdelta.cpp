@@ -13,17 +13,18 @@
  * Author: John Whitney <jjw@deltup.org>
  */
  
+typedef unsigned char byte;
+
 #include <stdio.h>
 #include <stdlib.h> 
 #include "container.h"
 #include "bdelta.h"
+#include "checksum.h"
+
 const bool verbose = false;
-typedef unsigned char byte;
-typedef unsigned long long Checksum;
 struct checksum_entry {
 	Checksum cksum; //Rolling checksums
 	unsigned loc;
-	int next;
 };
 
 struct Range {
@@ -49,17 +50,23 @@ struct BDelta_Instance {
 
 struct Checksums_Instance {
 	unsigned blocksize;
-	unsigned hashsize;
-	int *hash;
-	checksum_entry *hash_items;
-	unsigned numhashitems;
+	ChecksumManager cman;
+	unsigned htablesize;
+	checksum_entry **htable; // Points to first match in checksums
+	checksum_entry *checksums;  // Sorted list of all checksums
+	unsigned numchecksums;
+
+	Checksums_Instance(int blocksize) : cman(blocksize) {this->blocksize = blocksize;}
+	void add(checksum_entry ck) {
+		checksums[numchecksums] = ck;
+		++numchecksums;
+	} 
 };
 
-const unsigned multiplyamount = 181;
 
 unsigned match_buf_forward(void *buf1, void *buf2, unsigned num) { 
 	unsigned  i = 0;
-	while (i<num && (unsigned*)((char*)buf1+i)==(unsigned*)((char*)buf2+i)) i+=4;
+	while (i<num && (unsigned*)((char*)buf1+i)==(unsigned*)((char*)buf2+i)) i += sizeof(unsigned);
 	while (i<num && ((byte*)buf1)[i]==((byte*)buf2)[i]) ++i;
 	return i;
 }
@@ -99,19 +106,6 @@ unsigned match_backward(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned b
 }
 
 
-void calculate_block_checksum(byte *blockptr, unsigned blocksize, 
-                              unsigned &sum, Checksum &accum) {
-	sum = 0; accum = 0;
-	// Checksum rsum=0;
-	for (unsigned buf_loc = 0; buf_loc < blocksize; ++buf_loc) {
-		sum += blockptr[buf_loc];
-		accum *= multiplyamount;
-		accum += sum;
-		// rsum = (rsum<<shiftSize)|(rsum>>(32-shiftSize));
-		// rsum^=blockptr[buf_loc];
-	}
-}
-
 void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, DLink<Match> *&place) {
 	while (place && place->obj->p2>=p2) {
 		DLink<Match> *toerase = place;
@@ -128,30 +122,26 @@ void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, DLink<
 	place = b->matches.insert(new Match(p1, p2, num), place, next);
 }
 
-//long long stata = 0, statb = 0;
+long long stata = 0, statb = 0;
 void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsigned end,
-		DLink<Match> *place, Checksum oldcoefficient) {
+		DLink<Match> *place) {
 	byte *inbuf, *outbuf;
 	unsigned buf_loc;
 	const unsigned blocksize = h->blocksize;
-  
-	unsigned sum;
-	Checksum accum;
-  
-	const unsigned maxSectionMatches = 128;//16+b->f2_size/262140;
-	int checkMatches[maxSectionMatches];
+	
+	const unsigned maxSectionMatches = 256;
+	checksum_entry *checkMatches[maxSectionMatches];
 	int matchP2[maxSectionMatches];
 	int numcheckMatches;
-	int challengerP1, challengerP2 = end, challengerNum=0;
 	int j = start;
 	while (j < end) {
 		inbuf = (byte*)b->f2(j, blocksize);
-		calculate_block_checksum(inbuf, blocksize, sum, accum);
+		Checksum accum = h->cman.evaluateBlock(inbuf);
 		buf_loc=blocksize;
 		j+=blocksize;
-    
+
 		numcheckMatches = 0;
-    
+
 		unsigned endi = end;
 		int i;
 		for (i = j; i < endi; ++i) {
@@ -161,18 +151,13 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 				inbuf=(byte*)b->f2(i, blocksize);
 			}
 			const Checksum ck = accum;
-			int c = h->hash[ck&(h->hashsize-1)];
-			if (c!=-1) {
-				// ++stata;
-				// if (c!=-1) {
-				int start = c;
-				do {
-					c=h->hash_items[c].next;
-					if (h->hash_items[c].cksum==ck) {
-						// printf("%i\n", numcheckMatches);
+			checksum_entry *c = h->htable[ck&(h->htablesize-1)];
+			if (c) {
+				while ((c->cksum&(h->htablesize-1))==(ck&(h->htablesize-1))) {
+					if (c->cksum==ck) {
 						if (numcheckMatches>=maxSectionMatches) {
-							i = endi;
-							numcheckMatches=0;//printf("too many matches\n");
+							endi = i;
+							numcheckMatches=0;
 							break;
 						}
 						matchP2[numcheckMatches] = i-blocksize;
@@ -180,76 +165,77 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 						if (endi==end) endi = i+blocksize;
 						if (endi>end) endi=end;
 					}
-				} while (c!=start);
-			} //else ++statb;
-			const byte 
+					++c;
+				} //else ++statb;
+			}
+
+			const byte
 				oldbyte = outbuf[buf_loc],
 				newbyte = inbuf[buf_loc];
 			++buf_loc;
-			accum -= oldcoefficient*oldbyte;
-			accum*=multiplyamount;
-			sum = sum - oldbyte + newbyte;
-			accum += sum;
-
-			// static int lastmark = 0;
-			// if (start==0 && end==size2 && i>lastmark*(size2/20)) {
-			//	fprintf(stderr, "checkpoint %i\n", lastmark);
-			//	lastmark++;
-			// }
+			accum = h->cman.advanceChecksum(accum, oldbyte, newbyte);
 		}
-    
+
 		j=i;
-		// again:
 		if (numcheckMatches) {
 			unsigned lastf1Place = place?place->obj->p1+place->obj->num:0;
 			int closestMatch=0;
 			for (int i = 1; i < numcheckMatches; ++i)
-				if (abs(lastf1Place-h->hash_items[checkMatches[i]].loc) <
-						abs(lastf1Place-h->hash_items[checkMatches[closestMatch]].loc))
+				if (abs(lastf1Place-checkMatches[i]->loc) <
+						abs(lastf1Place-checkMatches[closestMatch]->loc))
 					closestMatch=i;
 
-			unsigned p1 = h->hash_items[checkMatches[closestMatch]].loc, p2 = matchP2[closestMatch];
-			unsigned fnum = match_forward(b, p1, p2);
-			// if (fnum<blocksize) falsematches++; else truematches++;
+			bool badMatch = (false && blocksize<=16 &&
+					(checkMatches[closestMatch]->loc<lastf1Place ||
+					 checkMatches[closestMatch]->loc>lastf1Place+blocksize));
+			if (! badMatch) {
+				unsigned p1 = checkMatches[closestMatch]->loc, p2 = matchP2[closestMatch];
+				unsigned fnum = match_forward(b, p1, p2);
+				// if (fnum<blocksize) falsematches++; else truematches++;
 
-			if (fnum >= blocksize) {
-				unsigned bnum = match_backward(b, p1, p2, blocksize);
-				unsigned num=fnum+bnum;
-				p1 -= bnum; p2 -= bnum;
-				addMatch(b, p1, p2, num, place);
-				j=p2+num;
-			} 
+				if (fnum >= blocksize) {
+					unsigned bnum = match_backward(b, p1, p2, blocksize);
+					unsigned num=fnum+bnum;
+					p1 -= bnum; p2 -= bnum;
+					addMatch(b, p1, p2, num, place);
+					j=p2+num;
+					++stata;
+				} else ++statb;
+			}
 		}
 	}
 }
 
-// TODO: maybe make this function a member of Checksums_Instance?
-void add_cksum(BDelta_Instance *b, Checksums_Instance *h, unsigned place) {
-	const unsigned blocksize = h->blocksize;
-	byte *blockbuf = (byte*)b->f1(place, blocksize);
-	unsigned sum;
-	Checksum accum;
-	calculate_block_checksum(blockbuf, blocksize, sum, accum);
-	Checksum ck = accum;
-	h->hash_items[h->numhashitems].cksum = ck;
-	h->hash_items[h->numhashitems].loc = place;
-	if (h->hash[ck&(h->hashsize-1)] != -1
-		// && (hash[ck&(hashsize-1)]->cksum1!=c->cksum1
-		// || hash[ck&(hashsize-1)]->cksum2!=c->cksum2)
-	) {
-		h->hash_items[h->numhashitems].next = 
-		h->hash_items[h->hash[ck&(h->hashsize-1)]].next;
-		h->hash_items[h->hash[ck&(h->hashsize-1)]].next = h->numhashitems;
-	} else
-		h->hash_items[h->numhashitems].next = h->numhashitems;
-	h->hash[ck&(h->hashsize-1)] = h->numhashitems;
-	// if (i < 10000000) printf("%*llx, %*x\n", 18, ck, 10, i); else exit(1);
-	++h->numhashitems;
-} 
-
 int comparep1(const void *r1, const void *r2) {
 	if (((Range*)r1)->p < ((Range*)r2)->p) return -1;
 	return 1;
+}
+
+int compareck(const void *r1, const void *r2) {
+	Checksum c1 = ((checksum_entry*)r1)->cksum,
+					 c2 = ((checksum_entry*)r2)->cksum;
+	if (c1 < c2) return -1;
+	return 1;
+}
+
+void partialsort(int first, int last, Checksums_Instance *h) {
+	#define a(x) (h->checksums[x].cksum & (h->htablesize-1))
+	int k = (a(first) + a(last)) / 2, 
+			i = first,
+			j = last;
+	do {
+		while (a(i) < k) ++i;
+		while (k < a(j)) --j;
+		if (i <= j) {
+			checksum_entry temp = h->checksums[i];
+			h->checksums[i] = h->checksums[j];
+			h->checksums[j] = temp;
+			++i;
+			--j;
+		}
+	} while (i <= j);
+	if (first < j) partialsort(first, j, h);
+	if (i < last) partialsort(i, last, h);
 }
 
 void *bdelta_init_alg(unsigned f1_size, unsigned f2_size, 
@@ -276,8 +262,7 @@ void bdelta_done_alg(void *instance) {
 unsigned bdelta_pass(void *instance, unsigned blocksize) {
 	if (verbose) printf("Organizing leftover blocks\n");
 
-	Checksums_Instance h;
-	h.blocksize = blocksize;
+	Checksums_Instance h(blocksize);
 	BDelta_Instance *b = (BDelta_Instance*)instance;
 	b->access_int=-1;
 
@@ -321,49 +306,53 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 	if (verbose) printf("Starting search for matching blocks of size %i\n", blocksize);
 	// numblocks=size/blocksize;
 	if (verbose) printf("found %i blocks\n", numblocks);
-	h.hashsize = 1<<16;
-	while (h.hashsize<numblocks) h.hashsize<<=1;
-	// h.hashsize<<=2;
-	// hashsize>>=0;
-	if (verbose) printf("creating hash of size %i\n", h.hashsize);
-	h.hash = new int[h.hashsize];
-	if (!h.hash) {b->errorcode=BDELTA_MEM_ERROR; return 0;}
-	h.hash_items = new checksum_entry[numblocks];
-	if (!h.hash_items) {b->errorcode=BDELTA_MEM_ERROR; return 0;}
+	h.htablesize = 1<<16;
+	while (h.htablesize<numblocks) h.htablesize<<=1;
+	// h.htablesize<<=2;
+	// htablesize>>=0;
+	if (verbose) printf("creating hash table of size %i\n", h.htablesize);
+	// h.htablesize=65536;
+	h.htable = new checksum_entry*[h.htablesize];
+	if (!h.htable) {b->errorcode=BDELTA_MEM_ERROR; return 0;}
+	h.checksums = new checksum_entry[numblocks+2];
+	if (!h.checksums) {b->errorcode=BDELTA_MEM_ERROR; return 0;}
 
 	if (verbose) printf("find checksums\n");
-	for (unsigned i = 0; i < h.hashsize; ++i) h.hash[i]=-1;
 
-	h.numhashitems=0;
+	h.numchecksums=0;
 	// unsigned numchecksums = 0;
 	for (unsigned i = 0; i < numunused; ++i) {
-		unsigned p1 = unused[i].p, p2 = unused[i].p + unused[i].num;
-		while (p1+blocksize <= p2) {
+		unsigned first = unused[i].p, last = unused[i].p + unused[i].num;
+		while (first+blocksize <= last) {
 			// ++numchecksums;
-			add_cksum(b, &h, p1);
-			p1+=blocksize;
+			byte *buf = (byte*)b->f1(first, blocksize);
+			h.add((checksum_entry){h.cman.evaluateBlock(buf), first});
+			first += blocksize;
 		}
 	}
-	// if (verbose) printf("%i checksums\n", h.numhashitems);
+	if (h.numchecksums) partialsort(0, h.numchecksums-1, &h);
+	h.checksums[h.numchecksums].cksum = 0;
+	h.checksums[h.numchecksums+1].cksum = (Checksum)-1;
+
+//  qsort(h.checksum, h.numchecksums, sizeof(checksum_entry), compareck);
+	for (unsigned i = 0; i < h.htablesize; ++i) h.htable[i]=0;
+	for (int i = h.numchecksums-1; i >= 0; --i)
+		h.htable[h.checksums[i].cksum&(h.htablesize-1)] = &h.checksums[i];
+
+//  if (verbose) printf("%i checksums\n", h.numchecksums);
 	if (verbose) printf("compare files\n");
-  
-	Checksum oldcoefficient = 1;
-	for (unsigned i = 1; i < blocksize; ++i) {
-		oldcoefficient*=multiplyamount;
-		++oldcoefficient;
-	}
 
 	last = 0;
 	for (DLink<Match> *l = b->matches.first; l; l=l->next) {
 		if (l->obj->p2 - last >= blocksize)    
-			findMatches(b, &h, last, l->obj->p2, l->prev, oldcoefficient);
+			findMatches(b, &h, last, l->obj->p2, l->prev);
 		last = l->obj->p2+l->obj->num;
 	}
 	if (b->f2_size-last>=blocksize) 
-		findMatches(b, &h, last, b->f2_size, b->matches.last, oldcoefficient);
+		findMatches(b, &h, last, b->f2_size, b->matches.last);
 	delete unused;
-	delete h.hash;
-	delete h.hash_items;
+	delete h.htable;
+	delete h.checksums;
 	// printf("a = %.lli; b = %.lli\n", stata, statb);
 	// printf("Found %i matches\n", b->matches.size());
 	return b->matches.size();
