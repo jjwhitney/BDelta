@@ -1,0 +1,11 @@
+all: libbdelta.dylib bdelta bpatch python
+python: bdelta_python.so
+libbdelta.dylib: libbdelta.cpp container.h checksum.h file.h
+	${CC} -dynamiclib -lstdc++ ${CXXFLAGS} $< -o $@
+bdelta: bdelta.cpp container.h file.h
+	${CC} $< -L. -lbdelta -lstdc++ -o $@
+bpatch: bpatch.cpp file.h
+	${CC} $< -L. -lstdc++ -o $@
+bdelta_python.so: bdelta_python.cpp
+	${CC} -dynamiclib -lstdc++ $< -o $@ `python-config --includes` `python-config --ldflags`
+

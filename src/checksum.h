@@ -1,4 +1,4 @@
-/* Copyright (C) 2003  John Whitney
+/* Copyright (C) 2003-2010  John Whitney
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -10,7 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * Author: John Whitney <jjw@linuxmail.org>
+ * Author: John Whitney <jjw@deltup.org>
  */
 
 typedef unsigned long long Checksum;
