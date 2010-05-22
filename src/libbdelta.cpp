@@ -114,8 +114,20 @@ void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, DLink<
 		place=place->prev;
 		b->matches.erase(toerase);
 	}
+/*
 	if (place && place->obj->p2+place->obj->num>p2)
 		place->obj->num=p2-place->obj->p2;
+*/
+	// Code below performs nearly the same as above, but isn't as likely to split unicode characters.
+	if (place) {
+		unsigned lastPlace = place->obj->p2 + place->obj->num;
+		if (lastPlace > p2) {
+			unsigned diff = lastPlace - p2;
+			num -= diff;
+			p1 += diff;
+			p2 += diff;
+		}
+	}
 	DLink<Match> *next = place?place->next:b->matches.first;
 	// if (next && p2>=next->obj->p2) {printf("Bad thing\n"); }// goto outofhere;
 	if (next && p2+num>next->obj->p2)
@@ -201,6 +213,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 					p1 -= bnum; p2 -= bnum;
 					addMatch(b, p1, p2, num, place);
 					j=p2+num;
+					//printf("p1: %i, p2: %i, num: %i\n", p1, p2, num);
 					++stata;
 				} else ++statb;
 			}
@@ -344,6 +357,7 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 	}
 	if (b->f2_size-last>=blocksize) 
 		findMatches(b, &h, last, b->f2_size, b->matches.last);
+	// printf("afterwards: %i, %i, %i\n", b->matches.first->next->obj->p1, b->matches.first->next->obj->p2, b->matches.first->next->obj->num);
 	delete unused;
 	delete h.htable;
 	delete h.checksums;

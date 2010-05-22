@@ -26,30 +26,34 @@ void *b_read(unsigned place, unsigned num) {
 	return (char*)(b_global + place);
 }
 
+void dumpContent(char *name, char *s, size_t len) {
+	printf("%s: ", name);
+	for (int i = 0; i < len; ++i)
+		if (isprint(s[i]))
+			printf("%c", s[i]);
+		else
+			printf("%i", s[i]);
+	printf("\n\n");
+}
+
 PyObject* bdelta_SimpleString(PyObject* self, PyObject* args) {
-	const char *a, *b;
+	Py_UNICODE *a, *b;
 	int len_a, len_b;
 	int smallestMatch;
 
 	if (!PyArg_ParseTuple(args, "u#u#i", &a, &len_a, &b, &len_b, &smallestMatch))
 		return NULL;
+	PyObject *a16 = PyUnicode_EncodeUTF16(a, len_a, NULL, -1);
+	PyObject *b16 = PyUnicode_EncodeUTF16(b, len_b, NULL, -1);
+	
 	smallestMatch *= 2;
-/*
-	printf("String 1:\n");
-	for (int i = 0; i < len_a; ++i)
-		if (isprint(a[i]))
-			printf("%c", a[i]);
-		else
-			printf("%i", a[i]);
-	printf("String 2:\n");
-	for (int i = 0; i < len_b; ++i)
-		if (isprint(b[i]))
-			printf("%c", b[i]);
-		else
-			printf("%i", b[i]);
-*/
-	a_global = a;
-	b_global = b;
+
+#ifndef NDEBUG
+	dumpContent("String 1", PyString_AsString(a16), len_a*2);
+	dumpContent("String 2", PyString_AsString(b16), len_b*2);
+#endif
+	a_global = (char *)PyString_AsString(a16);
+	b_global = (char *)PyString_AsString(b16);
 	void *bi = bdelta_init_alg(len_a*2, len_b*2, a_read, b_read);
 	int nummatches;
 	for (int i = 64; i >= smallestMatch; i/=2)
@@ -71,7 +75,8 @@ PyObject* bdelta_SimpleString(PyObject* self, PyObject* args) {
 		PyTuple_SetItem(m, 2, PyInt_FromLong(num/2));
 		PyTuple_SetItem(ret, i, m);
 	}
-	
+	Py_DECREF(a16);
+	Py_DECREF(b16);
 	return ret;
 }
 

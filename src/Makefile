@@ -4,9 +4,12 @@ BINDIR=$(PREFIX)/bin
 LIBDIR=${PREFIX}/lib
 CXXFLAGS=-O2
 
-all: bpatch libbdelta.so bdelta
+all: bpatch libbdelta.so bdelta python
+python: bdelta_python.so
 libbdelta.so: libbdelta.cpp container.h checksum.h file.h
 	${CC} -shared -fPIC ${CXXFLAGS} $< -o $@
+bdelta_python.so: bdelta_python.cpp
+        ${CC} -shared -fPIC -lstdc++ $< -o $@ `python-config --includes` `python-config --ldflags`
 bdelta: bdelta.cpp container.h file.h
 	${CC} $< -o $@ ${CXXFLAGS} -L. -lbdelta -lstdc++
 bpatch: bpatch.cpp file.h
@@ -17,3 +20,5 @@ install: libbdelta.so bdelta bpatch
 	install -m 755 libbdelta.so $(DESTDIR)$(LIBDIR)
 	install -m 755 bdelta $(DESTDIR)$(BINDIR)
 	install -m 755 bpatch $(DESTDIR)$(BINDIR)
+
+
