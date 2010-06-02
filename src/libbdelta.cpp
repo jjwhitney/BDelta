@@ -20,6 +20,7 @@ typedef unsigned char byte;
 #include "container.h"
 #include "bdelta.h"
 #include "checksum.h"
+#include <algorithm>
 
 const bool verbose = false;
 struct checksum_entry {
@@ -60,7 +61,10 @@ struct Checksums_Instance {
 	void add(checksum_entry ck) {
 		checksums[numchecksums] = ck;
 		++numchecksums;
-	} 
+	}
+        unsigned hashck(Checksum cksum) {
+            return cman.modulo(cksum, htablesize);
+	}
 };
 
 
@@ -78,11 +82,10 @@ unsigned match_buf_backward(void *buf1, void *buf2, unsigned num) {
 	while (i>=0 && ((byte*)buf1)[i]==((byte*)buf2)[i]);
 	return num-i-1;
 }
-inline unsigned lesser(unsigned a, unsigned b) {return a<b?a:b;}
 unsigned match_forward(BDelta_Instance *b, unsigned p1, unsigned p2) { 
 	unsigned num = 0, match, numtoread;
 	do {
-		numtoread=lesser(b->f1_size-p1, b->f2_size-p2);
+		numtoread=std::min(b->f1_size-p1, b->f2_size-p2);
 		if (numtoread>4096) numtoread=4096;
 		void *read1 = b->f1(p1, numtoread);
 		void *read2 = b->f2(p2, numtoread);
@@ -96,7 +99,7 @@ unsigned match_forward(BDelta_Instance *b, unsigned p1, unsigned p2) {
 unsigned match_backward(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned blocksize) { 
 	unsigned num = 0, match, numtoread;
 	do {
-		numtoread = lesser(p1, p2);
+		numtoread = std::min(p1, p2);
 		if (numtoread > blocksize) numtoread = blocksize;
 		p1-=numtoread; p2-=numtoread;  
 		void *read1 = b->f1(p1, numtoread);
@@ -150,33 +153,31 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 	int j = start;
 	while (j < end) {
 		inbuf = (byte*)b->f2(j, blocksize);
-		Checksum accum = h->cman.evaluateBlock(inbuf);
+		Checksum cksum = h->cman.evaluateBlock(inbuf);
 		buf_loc=blocksize;
 		j+=blocksize;
 
 		numcheckMatches = 0;
 
 		unsigned endi = end;
-		int i;
-		for (i = j; i < endi; ++i) {
+		for (; j < endi; ++j) {
 			if (buf_loc==blocksize) {
 				buf_loc=0;
 				outbuf=inbuf;
-				inbuf=(byte*)b->f2(i, blocksize);
+				inbuf=(byte*)b->f2(j, blocksize);
 			}
-			const Checksum ck = accum;
-			checksum_entry *c = h->htable[ck&(h->htablesize-1)];
+			checksum_entry *c = h->htable[h->hashck(cksum)];
 			if (c) {
-				while ((c->cksum&(h->htablesize-1))==(ck&(h->htablesize-1))) {
-					if (c->cksum==ck) {
+				while (h->hashck(c->cksum)==h->hashck(cksum)) {
+					if (c->cksum==cksum) {
 						if (numcheckMatches>=maxSectionMatches) {
-							endi = i;
+							endi = j;
 							numcheckMatches=0;
 							break;
 						}
-						matchP2[numcheckMatches] = i-blocksize;
+						matchP2[numcheckMatches] = j-blocksize;
 						checkMatches[numcheckMatches++] = c;
-						if (endi==end) endi = i+blocksize;
+						if (endi==end) endi = j+blocksize;
 						if (endi>end) endi=end;
 					}
 					++c;
@@ -187,10 +188,9 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 				oldbyte = outbuf[buf_loc],
 				newbyte = inbuf[buf_loc];
 			++buf_loc;
-			accum = h->cman.advanceChecksum(accum, oldbyte, newbyte);
+			cksum = h->cman.advanceChecksum(cksum, oldbyte, newbyte);
 		}
 
-		j=i;
 		if (numcheckMatches) {
 			unsigned lastf1Place = place?place->obj->p1+place->obj->num:0;
 			int closestMatch=0;
@@ -221,37 +221,18 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 	}
 }
 
-int comparep1(const void *r1, const void *r2) {
-	if (((Range*)r1)->p < ((Range*)r2)->p) return -1;
-	return 1;
+bool comparep1(Range r1, Range r2) {
+	return r1.p < r2.p;
 }
 
-int compareck(const void *r1, const void *r2) {
-	Checksum c1 = ((checksum_entry*)r1)->cksum,
-					 c2 = ((checksum_entry*)r2)->cksum;
-	if (c1 < c2) return -1;
-	return 1;
-}
-
-void partialsort(int first, int last, Checksums_Instance *h) {
-	#define a(x) (h->checksums[x].cksum & (h->htablesize-1))
-	int k = (a(first) + a(last)) / 2, 
-			i = first,
-			j = last;
-	do {
-		while (a(i) < k) ++i;
-		while (k < a(j)) --j;
-		if (i <= j) {
-			checksum_entry temp = h->checksums[i];
-			h->checksums[i] = h->checksums[j];
-			h->checksums[j] = temp;
-			++i;
-			--j;
-		}
-	} while (i <= j);
-	if (first < j) partialsort(first, j, h);
-	if (i < last) partialsort(i, last, h);
-}
+struct Checksums_Compare {
+        Checksums_Instance &ci;
+        Checksums_Compare(Checksums_Instance &h) : ci(h) {}
+	unsigned hashPart(Checksum cksum) {return ci.hashck(cksum);}
+	bool operator() (checksum_entry c1, checksum_entry c2) {
+		return (hashPart(c1.cksum) < hashPart(c2.cksum));
+	}
+};
 
 void *bdelta_init_alg(unsigned f1_size, unsigned f2_size, 
 		bdelta_readCallback f1, bdelta_readCallback f2) {
@@ -287,7 +268,8 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 	for (DLink<Match> *l = b->matches.first; l; l=l->next)
 		unused[numunused++] = Range(l->obj->p1, l->obj->num);
 
-	qsort(unused, numunused, sizeof(Range), comparep1);
+        std::sort(unused, unused + numunused, comparep1);
+
 	// Trick loop below into including the free range at the end.
 	unused[numunused++] = Range(b->f1_size, b->f1_size);
 
@@ -299,7 +281,7 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 			++missing;
 		else
 			unused[i-missing] = Range(last, unused[i].p-last);
-		last = nextstart;
+		last = std::max(last, nextstart);
 	}
 	numunused-=missing;
 
@@ -330,21 +312,20 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 	// unsigned numchecksums = 0;
 	for (unsigned i = 0; i < numunused; ++i) {
 		unsigned first = unused[i].p, last = unused[i].p + unused[i].num;
-		while (first+blocksize <= last) {
-			// ++numchecksums;
-			byte *buf = (byte*)b->f1(first, blocksize);
-			h.add((checksum_entry){h.cman.evaluateBlock(buf), first});
-			first += blocksize;
+		for (unsigned loc = first; loc + blocksize <= last; loc += blocksize) {
+			byte *buf = (byte*)b->f1(loc, blocksize);
+			h.add((checksum_entry){h.cman.evaluateBlock(buf), loc});
 		}
 	}
-	if (h.numchecksums) partialsort(0, h.numchecksums-1, &h);
+	if (h.numchecksums)
+		std::sort(h.checksums, h.checksums + h.numchecksums, Checksums_Compare(h));
+
 	h.checksums[h.numchecksums].cksum = 0;
 	h.checksums[h.numchecksums+1].cksum = (Checksum)-1;
 
-//  qsort(h.checksum, h.numchecksums, sizeof(checksum_entry), compareck);
 	for (unsigned i = 0; i < h.htablesize; ++i) h.htable[i]=0;
 	for (int i = h.numchecksums-1; i >= 0; --i)
-		h.htable[h.checksums[i].cksum&(h.htablesize-1)] = &h.checksums[i];
+		h.htable[h.hashck(h.checksums[i].cksum)] = &h.checksums[i];
 
 //  if (verbose) printf("%i checksums\n", h.numchecksums);
 	if (verbose) printf("compare files\n");

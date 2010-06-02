@@ -52,5 +52,9 @@ struct ChecksumManager {
 		ck += in;
 		return ck;
 	}
+	unsigned modulo(Checksum ck, unsigned d) {
+            // Assumes d is power of 2.
+            return ck & (d-1);
+	}
 };
 
