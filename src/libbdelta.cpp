@@ -12,8 +12,15 @@
  *
  * Author: John Whitney <jjw@deltup.org>
  */
+#include <stdint.h>
  
-typedef unsigned char byte;
+#if !defined(TOKEN_SIZE) || TOKEN_SIZE == 1
+typedef uint8_t Token;
+#elif TOKEN_SIZE == 2
+typedef uint16_t Token;
+#elif TOKEN_SIZE == 4
+typedef uint32_t Token;
+#endif
 
 #include <stdio.h>
 #include <stdlib.h> 
@@ -49,10 +56,10 @@ struct BDelta_Instance {
 	int access_int;
 	int errorcode;
 
-	byte *read1(void *buf, unsigned place, unsigned num)
-		{return (byte*)cb(handle1, buf, place, num);}
-	byte *read2(void *buf, unsigned place, unsigned num)
-		{return (byte*)cb(handle2, buf, place, num);}
+	Token *read1(void *buf, unsigned place, unsigned num)
+		{return (Token*)cb(handle1, buf, place, num);}
+	Token *read2(void *buf, unsigned place, unsigned num)
+		{return (Token*)cb(handle2, buf, place, num);}
 };
 
 struct Checksums_Instance {
@@ -75,16 +82,13 @@ struct Checksums_Instance {
 
 unsigned match_buf_forward(void *buf1, void *buf2, unsigned num) { 
 	unsigned i = 0;
-	while (i<num && (unsigned*)((char*)buf1+i)==(unsigned*)((char*)buf2+i)) i += sizeof(unsigned);
-	if (i>=num)
-		return num;
-	while (i<num && ((byte*)buf1)[i]==((byte*)buf2)[i]) ++i;
+	while (i<num && ((Token*)buf1)[i]==((Token*)buf2)[i]) ++i;
 	return i;
 }
 unsigned match_buf_backward(void *buf1, void *buf2, unsigned num) { 
 	int i = num;
 	do --i;
-	while (i>=0 && ((byte*)buf1)[i]==((byte*)buf2)[i]);
+	while (i>=0 && ((Token*)buf1)[i]==((Token*)buf2)[i]);
 	return num-i-1;
 }
 unsigned match_forward(BDelta_Instance *b, unsigned p1, unsigned p2) { 
@@ -92,9 +96,9 @@ unsigned match_forward(BDelta_Instance *b, unsigned p1, unsigned p2) {
 	do {
 		numtoread=std::min(b->data1_size-p1, b->data2_size-p2);
 		if (numtoread>4096) numtoread=4096;
-		byte buf1[4096], buf2[4096];
-		byte *read1 = b->read1(buf1, p1, numtoread),
-		     *read2 = b->read2(buf2, p2, numtoread);
+		Token buf1[4096], buf2[4096];
+		Token *read1 = b->read1(buf1, p1, numtoread),
+		      *read2 = b->read2(buf2, p2, numtoread);
 		p1+=numtoread; p2+=numtoread;
 		match = match_buf_forward(read1, read2, numtoread);
 		num+=match;
@@ -108,9 +112,9 @@ unsigned match_backward(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned b
 		numtoread = std::min(p1, p2);
 		if (numtoread > blocksize) numtoread = blocksize;
 		p1-=numtoread; p2-=numtoread;
-		byte buf1[4096], buf2[4096];
-		byte *read1 = b->read1(buf1, p1, numtoread),
-		     *read2 = b->read2(buf2, p2, numtoread);
+		Token buf1[4096], buf2[4096];
+		Token *read1 = b->read1(buf1, p1, numtoread),
+		      *read2 = b->read2(buf2, p2, numtoread);
 		match = match_buf_backward(read1, read2, numtoread);
 		num+=match;
 	} while (match && match==numtoread);
@@ -150,8 +154,8 @@ long long stata = 0, statb = 0;
 void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsigned end,
 		DLink<Match> *place) {
 	const unsigned blocksize = h->blocksize;
-	byte buf1[blocksize], buf2[blocksize];
-	byte *inbuf = buf1, *outbuf = buf2;
+	Token buf1[blocksize], buf2[blocksize];
+	Token *inbuf = buf1, *outbuf = buf2;
 	unsigned buf_loc;
 	
 	const unsigned maxSectionMatches = 256;
@@ -192,11 +196,11 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 				} //else ++statb;
 			}
 
-			const byte
-				oldbyte = outbuf[buf_loc],
-				newbyte = inbuf[buf_loc];
+			const Token
+				oldToken = outbuf[buf_loc],
+				newToken = inbuf[buf_loc];
 			++buf_loc;
-			hash.advance(oldbyte, newbyte);
+			hash.advance(oldToken, newToken);
 		}
 
 		if (numcheckMatches) {
@@ -242,7 +246,12 @@ struct Checksums_Compare {
 };
 
 void *bdelta_init_alg(unsigned data1_size, unsigned data2_size, 
-                      bdelta_readCallback cb, void *handle1, void *handle2) {
+                      bdelta_readCallback cb, void *handle1, void *handle2,
+                      unsigned tokenSize) {
+	if (tokenSize != sizeof(Token)) {
+		printf("Error: BDelta library compiled for token size of %d.\n", sizeof(Token));
+		return 0;
+	}
 	BDelta_Instance *b = new BDelta_Instance;
 	if (!b) return 0;
 	b->data1_size = data1_size;
@@ -285,7 +294,7 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 	unsigned missing = 0;
 	for (unsigned i = 0; i < numunused; ++i) {
 		unsigned nextstart = unused[i].p + unused[i].num;
-		if (unused[i].p<=last) 
+		if (unused[i].p<=last)
 			++missing;
 		else
 			unused[i-missing] = Range(last, unused[i].p-last);
@@ -321,8 +330,8 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 	for (unsigned i = 0; i < numunused; ++i) {
 		unsigned first = unused[i].p, last = unused[i].p + unused[i].num;
 		for (unsigned loc = first; loc + blocksize <= last; loc += blocksize) {
-			byte buf[blocksize];
-			byte *read = b->read1(buf, loc, blocksize);
+			Token buf[blocksize];
+			Token *read = b->read1(buf, loc, blocksize);
 			h.add((checksum_entry){Hash(read, h.blocksize).value, loc});
 		}
 	}

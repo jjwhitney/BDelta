@@ -19,7 +19,8 @@
 typedef void *(*bdelta_readCallback)(void *handle, void *buf, unsigned place, unsigned num);
 
 void *bdelta_init_alg(unsigned data1_size, unsigned data2_size, 
-                      bdelta_readCallback cb, void *handle1, void *handle2);
+                      bdelta_readCallback cb, void *handle1, void *handle2,
+                      unsigned tokenSize);
 void  bdelta_done_alg(void *instance);
 
 //returns the total number of matches found

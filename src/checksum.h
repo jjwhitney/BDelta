@@ -19,7 +19,7 @@ public:
 	typedef unsigned long long Value;
 	Value value;
 
-	Hash(byte *buf, unsigned blocksize) {
+	Hash(Token *buf, unsigned blocksize) {
 		value = 0;
 		for (int num = 0; num < blocksize; ++num) {
 			value *= multiplyamount;
@@ -27,7 +27,7 @@ public:
 		}
 		oldCoefficient = powHash(multiplyamount, blocksize);
 	}
-	void advance(byte out, byte in) {
+	void advance(Token out, Token in) {
 		value *= multiplyamount;
 		value -= out * oldCoefficient;
 		value += in;

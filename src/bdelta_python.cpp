@@ -14,11 +14,11 @@
  */
 
 #include "Python.h"
+#define TOKEN_SIZE 2
 #include "libbdelta.cpp"
 #include "string.h"
-
 void *mem_read(void *data, void *buf, unsigned place, unsigned num) {
-	return ((char*)data) + place;
+	return ((Token*)data) + place;
 }
 
 void dumpContent(char *name, char *s, size_t len) {
@@ -41,15 +41,13 @@ PyObject* bdelta_SimpleString(PyObject* self, PyObject* args) {
 	PyObject *a16 = PyUnicode_EncodeUTF16(a, len_a, NULL, -1);
 	PyObject *b16 = PyUnicode_EncodeUTF16(b, len_b, NULL, -1);
 	
-	smallestMatch *= 2;
-
 #ifndef NDEBUG
 	dumpContent("String 1", PyString_AsString(a16), len_a*2);
 	dumpContent("String 2", PyString_AsString(b16), len_b*2);
 #endif
 	void *string_a = PyString_AsString(a16);
 	void *string_b = PyString_AsString(b16);
-	void *bi = bdelta_init_alg(len_a*2, len_b*2, mem_read, string_a, string_b);
+	void *bi = bdelta_init_alg(len_a, len_b, mem_read, string_a, string_b, 2);
 	int nummatches;
 	for (int i = 64; i >= smallestMatch; i/=2)
 		nummatches = bdelta_pass(bi, i);
@@ -58,16 +56,11 @@ PyObject* bdelta_SimpleString(PyObject* self, PyObject* args) {
 	for (int i = 0; i < nummatches; ++i) {
 		unsigned p1, p2, num;
 		bdelta_getMatch(bi, i, &p1, &p2, &num);
-		if ((p1&1)==1 && (p2&1)==1)
-			{++p1; ++p2; --num;}
-		else if ((p1&1)==1 || (p2&1)==1)
-			printf("Unicode Error.\n");
-		//printf("%*i, %*i, %*i\n", 10, p1, 10, p2, 10, num);
 
 		PyObject *m = PyTuple_New(3);
-		PyTuple_SetItem(m, 0, PyInt_FromLong(p1/2));
-		PyTuple_SetItem(m, 1, PyInt_FromLong(p2/2));
-		PyTuple_SetItem(m, 2, PyInt_FromLong(num/2));
+		PyTuple_SetItem(m, 0, PyInt_FromLong(p1));
+		PyTuple_SetItem(m, 1, PyInt_FromLong(p2));
+		PyTuple_SetItem(m, 2, PyInt_FromLong(num));
 		PyTuple_SetItem(ret, i, m);
 	}
 	Py_DECREF(a16);
