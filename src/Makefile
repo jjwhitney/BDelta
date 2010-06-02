@@ -8,11 +8,11 @@ all: bpatch libbdelta.so bdelta python
 python: bdelta_python.so
 libbdelta.so: libbdelta.cpp container.h checksum.h file.h
 	${CC} -shared -fPIC ${CXXFLAGS} $< -o $@
-bdelta_python.so: bdelta_python.cpp
+bdelta_python.so: bdelta_python.cpp libbdelta.cpp container.h checksum.h file.h
         ${CC} -shared -fPIC -lstdc++ $< -o $@ `python-config --includes` `python-config --ldflags`
-bdelta: bdelta.cpp container.h file.h
+bdelta: bdelta.cpp bdelta.h container.h file.h
 	${CC} $< -o $@ ${CXXFLAGS} -L. -lbdelta -lstdc++
-bpatch: bpatch.cpp file.h
+bpatch: bpatch.cpp bdelta.h file.h
 % : %.cpp
 	${CC} $< -o $@ ${CXXFLAGS} -lstdc++
 install: libbdelta.so bdelta bpatch

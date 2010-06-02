@@ -15,15 +15,10 @@
 
 #include "Python.h"
 #include "libbdelta.cpp"
+#include "string.h"
 
-const char *a_global, *b_global;
-
-void *a_read(unsigned place, unsigned num) {
-	return (char*)(a_global + place);
-}
-
-void *b_read(unsigned place, unsigned num) {
-	return (char*)(b_global + place);
+void *mem_read(void *data, void *buf, unsigned place, unsigned num) {
+	return ((char*)data) + place;
 }
 
 void dumpContent(char *name, char *s, size_t len) {
@@ -52,9 +47,9 @@ PyObject* bdelta_SimpleString(PyObject* self, PyObject* args) {
 	dumpContent("String 1", PyString_AsString(a16), len_a*2);
 	dumpContent("String 2", PyString_AsString(b16), len_b*2);
 #endif
-	a_global = (char *)PyString_AsString(a16);
-	b_global = (char *)PyString_AsString(b16);
-	void *bi = bdelta_init_alg(len_a*2, len_b*2, a_read, b_read);
+	void *string_a = PyString_AsString(a16);
+	void *string_b = PyString_AsString(b16);
+	void *bi = bdelta_init_alg(len_a*2, len_b*2, mem_read, string_a, string_b);
 	int nummatches;
 	for (int i = 64; i >= smallestMatch; i/=2)
 		nummatches = bdelta_pass(bi, i);

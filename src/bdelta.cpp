@@ -18,51 +18,10 @@
 #include "bdelta.h"
 #include "file.h"
 
-const int BUFNUM=16;
-class Buffered_File {
-	FILE *f;
-	char *buf[BUFNUM];
-	unsigned bufplace[BUFNUM];
-	int bufsize;
-public:
-	Buffered_File(char *fname, unsigned maxread) {
-		f = fopen(fname, "rb");
-		bufsize=maxread;
-		for (int i = 0; i < BUFNUM; ++i) {
-			buf[i] = new char[bufsize];
-			bufplace[i] = 0;
-		}
-	}
-	~Buffered_File() {
-		for (int i = 0; i < BUFNUM; ++i)
-			delete buf[i];
-		fclose(f);
-	}
-	void *read(unsigned place, unsigned num) {
-		for (int i = 0; i < BUFNUM; ++i)
-			if (bufplace[i] && place>bufplace[i] && place+num<bufplace[i]+bufsize) 
-				return buf[i]+place-bufplace[i];
-		char *lastbuf = buf[BUFNUM-1];
-		for (int i = BUFNUM-1; i > 0; --i) {
-			buf[i] = buf[i-1];
-			bufplace[i] = bufplace[i-1];
-		}
-		buf[0]=lastbuf;
-		bufplace[0]=place;
-		// NB: if ftell(f)==place, this has no effect.
-		fseek(f, place, SEEK_SET);
-		fread(buf[0], 1, bufsize, f);
-		return buf[0];
-	}
-};
-
-Buffered_File *f1, *f2;
-
-void *f1_read(unsigned place, unsigned num) {
-	return f1->read(place, num);
-}
-void *f2_read(unsigned place, unsigned num) {
-	return f2->read(place, num);
+void *f_read(void *f, void *buf, unsigned place, unsigned num) {
+	fseek((FILE *)f, place, SEEK_SET);
+	fread(buf, num, 1, (FILE *)f);
+	return buf;
 }
 
 int main(int argc, char **argv) {
@@ -77,10 +36,10 @@ int main(int argc, char **argv) {
 	}
 	unsigned size = getLenOfFile(argv[1]); 
 	unsigned size2 = getLenOfFile(argv[2]);
-	f1 = new Buffered_File(argv[1], 4096);
-	f2 = new Buffered_File(argv[2], 4096);
+	FILE *f1 = fopen(argv[1], "rb"),
+	     *f2 = fopen(argv[2], "rb");
 
-	void *b = bdelta_init_alg(size, size2, f1_read, f2_read);
+	void *b = bdelta_init_alg(size, size2, f_read, f1, f2);
 	int nummatches;
 	for (int i = 512; i >= 16; i/=2)
 		nummatches = bdelta_pass(b, i);
@@ -137,10 +96,10 @@ int main(int argc, char **argv) {
 	for (int i = 0; i < nummatches; ++i) {
 		unsigned num = copyloc2[i];
 		while (num>0) {
-			unsigned towrite = num;
-			if (towrite>4096) towrite=4096;
-			void *buf = f2->read(fp, towrite);
-			fwrite(buf, 1, towrite, fout);
+			unsigned towrite = (num > 4096) ? 4096 : num;
+			unsigned char buf[4096];
+			f_read(f2, buf, fp, towrite);
+			fwrite(buf, towrite, 1, fout);
 			num-=towrite;
 			fp+=towrite;
 		}
@@ -152,6 +111,6 @@ int main(int argc, char **argv) {
 
 	bdelta_done_alg(b);
 
-	delete f1;
-	delete f2;
+	fclose(f1);
+	fclose(f2);
 }

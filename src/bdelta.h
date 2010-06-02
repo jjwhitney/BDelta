@@ -13,13 +13,13 @@
  * Author: John Whitney <jjw@deltup.org>
  */
 
-// bdelta uses two callback functions to supply it with the
-// data to be compared, callback functions must keep data 
-// incorrupt until two more calls for data
-typedef void *(*bdelta_readCallback)(unsigned place, unsigned num);
+// Callback function must return a pointer to the data requested.
+// A "fill and forget" buffer is provided, but can be ignored, so
+// long as the data persists throughout the life of bdelta_pass().
+typedef void *(*bdelta_readCallback)(void *handle, void *buf, unsigned place, unsigned num);
 
-void *bdelta_init_alg(unsigned f1_size, unsigned f2_size, 
-                      bdelta_readCallback f1, bdelta_readCallback f2);
+void *bdelta_init_alg(unsigned data1_size, unsigned data2_size, 
+                      bdelta_readCallback cb, void *handle1, void *handle2);
 void  bdelta_done_alg(void *instance);
 
 //returns the total number of matches found
