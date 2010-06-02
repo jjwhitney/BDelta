@@ -24,7 +24,7 @@ typedef unsigned char byte;
 
 const bool verbose = false;
 struct checksum_entry {
-	Checksum cksum; //Rolling checksums
+	Hash::Value cksum; //Rolling checksums
 	unsigned loc;
 };
 
@@ -57,19 +57,18 @@ struct BDelta_Instance {
 
 struct Checksums_Instance {
 	unsigned blocksize;
-	ChecksumManager cman;
 	unsigned htablesize;
 	checksum_entry **htable; // Points to first match in checksums
 	checksum_entry *checksums;  // Sorted list of all checksums
 	unsigned numchecksums;
 
-	Checksums_Instance(int blocksize) : cman(blocksize) {this->blocksize = blocksize;}
+	Checksums_Instance(int blocksize) {this->blocksize = blocksize;}
 	void add(checksum_entry ck) {
 		checksums[numchecksums] = ck;
 		++numchecksums;
 	}
-        unsigned hashck(Checksum cksum) {
-            return cman.modulo(cksum, htablesize);
+        unsigned tableIndex(Hash::Value hashValue) {
+            return Hash::modulo(hashValue, htablesize);
 	}
 };
 
@@ -162,7 +161,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 	int j = start;
 	while (j < end) {
 		inbuf = b->read2(inbuf, j, blocksize);
-		Checksum cksum = h->cman.evaluateBlock(inbuf);
+		Hash hash = Hash(inbuf, h->blocksize);
 		buf_loc=blocksize;
 		j+=blocksize;
 
@@ -175,10 +174,10 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 				std::swap(inbuf, outbuf);
 				inbuf = b->read2(outbuf == buf1 ? buf2 : buf1, j, blocksize);
 			}
-			checksum_entry *c = h->htable[h->hashck(cksum)];
+			checksum_entry *c = h->htable[h->tableIndex(hash.value)];
 			if (c) {
-				while (h->hashck(c->cksum)==h->hashck(cksum)) {
-					if (c->cksum==cksum) {
+				while (h->tableIndex(c->cksum)==h->tableIndex(hash.value)) {
+					if (c->cksum==hash.value) {
 						if (numcheckMatches>=maxSectionMatches) {
 							endi = j;
 							numcheckMatches=0;
@@ -197,7 +196,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 				oldbyte = outbuf[buf_loc],
 				newbyte = inbuf[buf_loc];
 			++buf_loc;
-			cksum = h->cman.advanceChecksum(cksum, oldbyte, newbyte);
+			hash.advance(oldbyte, newbyte);
 		}
 
 		if (numcheckMatches) {
@@ -237,9 +236,8 @@ bool comparep1(Range r1, Range r2) {
 struct Checksums_Compare {
         Checksums_Instance &ci;
         Checksums_Compare(Checksums_Instance &h) : ci(h) {}
-	unsigned hashPart(Checksum cksum) {return ci.hashck(cksum);}
 	bool operator() (checksum_entry c1, checksum_entry c2) {
-		return (hashPart(c1.cksum) < hashPart(c2.cksum));
+		return (ci.tableIndex(c1.cksum) < ci.tableIndex(c2.cksum));
 	}
 };
 
@@ -325,18 +323,18 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 		for (unsigned loc = first; loc + blocksize <= last; loc += blocksize) {
 			byte buf[blocksize];
 			byte *read = b->read1(buf, loc, blocksize);
-			h.add((checksum_entry){h.cman.evaluateBlock(read), loc});
+			h.add((checksum_entry){Hash(read, h.blocksize).value, loc});
 		}
 	}
 	if (h.numchecksums)
 		std::sort(h.checksums, h.checksums + h.numchecksums, Checksums_Compare(h));
 
 	h.checksums[h.numchecksums].cksum = 0;
-	h.checksums[h.numchecksums+1].cksum = (Checksum)-1;
+	h.checksums[h.numchecksums+1].cksum = (Hash::Value)-1;
 
 	for (unsigned i = 0; i < h.htablesize; ++i) h.htable[i]=0;
 	for (int i = h.numchecksums-1; i >= 0; --i)
-		h.htable[h.hashck(h.checksums[i].cksum)] = &h.checksums[i];
+		h.htable[h.tableIndex(h.checksums[i].cksum)] = &h.checksums[i];
 
 //  if (verbose) printf("%i checksums\n", h.numchecksums);
 	if (verbose) printf("compare files\n");

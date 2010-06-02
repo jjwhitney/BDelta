@@ -13,48 +13,41 @@
  * Author: John Whitney <jjw@deltup.org>
  */
 
-typedef unsigned long long Checksum;
 
-Checksum powChecksum(Checksum x, unsigned y) {
-  Checksum res = 1;
-  while (y) {
-    if (y&1) res*=x;
-    x*=x;
-    y>>=1;
-  }
-//  for (unsigned i = 0; i < y; ++i) res*=x;
-  return res;
-}
+struct Hash {
+public:
+	typedef unsigned long long Value;
+	Value value;
 
-static const unsigned multiplyamount = 181;
-
-struct ChecksumManager {
-	int blocksize;
-	Checksum oldCoefficient;
-
-	ChecksumManager(int blocksize) {
-		this->blocksize = blocksize;
-		oldCoefficient = powChecksum(multiplyamount, blocksize);
-	}
-
-	Checksum evaluateBlock(byte *buf) {
-		Checksum ck = 0;
+	Hash(byte *buf, unsigned blocksize) {
+		value = 0;
 		for (int num = 0; num < blocksize; ++num) {
-			ck *= multiplyamount;
-			ck += buf[num];
+			value *= multiplyamount;
+			value += buf[num];
 		}
-		return ck;
+		oldCoefficient = powHash(multiplyamount, blocksize);
+	}
+	void advance(byte out, byte in) {
+		value *= multiplyamount;
+		value -= out * oldCoefficient;
+		value += in;
+	}
+        static unsigned modulo(Value hash, unsigned d) {
+            // Assumes d is power of 2.
+            return hash & (d-1);
+	}
+private:
+	static Value powHash(Value x, unsigned y) {
+		Value res = 1;
+		while (y) {
+			if (y&1) res*=x;
+			x*=x;
+			y>>=1;
+		}
+		return res;
 	}
 
-	Checksum advanceChecksum(Checksum ck, byte out, byte in) {
-		ck *= multiplyamount;
-		ck -= out * oldCoefficient;
-		ck += in;
-		return ck;
-	}
-	unsigned modulo(Checksum ck, unsigned d) {
-            // Assumes d is power of 2.
-            return ck & (d-1);
-	}
+	static const unsigned multiplyamount = 181;
+	Value oldCoefficient;
 };
 
