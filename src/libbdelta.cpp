@@ -178,10 +178,10 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 				std::swap(inbuf, outbuf);
 				inbuf = b->read2(outbuf == buf1 ? buf2 : buf1, j, blocksize);
 			}
-			checksum_entry *c = h->htable[h->tableIndex(hash.value)];
+			checksum_entry *c = h->htable[h->tableIndex(hash.getValue())];
 			if (c) {
-				while (h->tableIndex(c->cksum)==h->tableIndex(hash.value)) {
-					if (c->cksum==hash.value) {
+				while (h->tableIndex(c->cksum)==h->tableIndex(hash.getValue())) {
+					if (c->cksum==hash.getValue()) {
 						if (numcheckMatches>=maxSectionMatches) {
 							endi = j;
 							numcheckMatches=0;
@@ -332,7 +332,7 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 		for (unsigned loc = first; loc + blocksize <= last; loc += blocksize) {
 			Token buf[blocksize];
 			Token *read = b->read1(buf, loc, blocksize);
-			h.add((checksum_entry){Hash(read, h.blocksize).value, loc});
+			h.add((checksum_entry){Hash(read, h.blocksize).getValue(), loc});
 		}
 	}
 	if (h.numchecksums)

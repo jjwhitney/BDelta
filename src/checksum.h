@@ -16,29 +16,39 @@
 
 struct Hash {
 public:
-	typedef unsigned long long Value;
-	Value value;
+	typedef uint32_t Value;
 
 	Hash(Token *buf, unsigned blocksize) {
 		value = 0;
-		for (int num = 0; num < blocksize; ++num) {
-			value *= multiplyamount;
-			value += buf[num];
-		}
-		oldCoefficient = powHash(multiplyamount, blocksize);
+		for (int num = 0; num < blocksize; ++num)
+			advance_add(buf[num]);
+		oldCoefficient = powHash(multiplyAmount, blocksize);
 	}
 	void advance(Token out, Token in) {
-		value *= multiplyamount;
-		value -= out * oldCoefficient;
-		value += in;
+		advance_remove(out);
+		advance_add(in);
 	}
-        static unsigned modulo(Value hash, unsigned d) {
-            // Assumes d is power of 2.
-            return hash & (d-1);
+	static unsigned modulo(Value hash, unsigned d) {
+		// Assumes d is power of 2.
+		return hash & (d-1);
 	}
+	Value getValue() {return value >> extraProcBits;}
 private:
-	static Value powHash(Value x, unsigned y) {
-		Value res = 1;
+	typedef uint64_t ProcValue;
+	static const unsigned extraProcBits = (sizeof(ProcValue) - sizeof(Value)) * 8;
+
+	static const ProcValue multiplyAmount = (1ll << extraProcBits) + 181;
+	ProcValue oldCoefficient, value;
+
+	void advance_add(Token in) {
+		value += in;
+		value *= multiplyAmount;
+	}
+	void advance_remove(Token out) {
+		value -= out * oldCoefficient;
+	}
+	static ProcValue powHash(ProcValue x, unsigned y) {
+		ProcValue res = 1;
 		while (y) {
 			if (y&1) res*=x;
 			x*=x;
@@ -46,8 +56,5 @@ private:
 		}
 		return res;
 	}
-
-	static const unsigned multiplyamount = 181;
-	Value oldCoefficient;
 };
 
