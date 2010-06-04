@@ -43,7 +43,6 @@ struct Range {
 
 struct Match {
 	unsigned p1, p2, num;
-	Match() {}
 	Match(unsigned p1, unsigned p2, unsigned num) 
 		{this->p1=p1; this->p2=p2; this->num=num;}
 };
@@ -151,90 +150,111 @@ void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, DLink<
 	place = b->matches.insert(new Match(p1, p2, num), place, next);
 }
 
+struct PotentialMatch {
+	unsigned p1, p2;
+	Hash::Value cksum;
+};
+
 struct DistanceFromP1 {
         unsigned place;
         DistanceFromP1(unsigned place) {this->place = place;}
-	bool operator() (Match m1, Match m2) {
+	bool operator() (PotentialMatch m1, PotentialMatch m2) {
 		return (abs(place-m1.p1) < abs(place-m2.p1));
 	}
 };
 
+void sortTMatches(DLink<Match> *place, PotentialMatch *matches, unsigned numMatches) {
+	unsigned lastf1Place = place?place->obj->p1+place->obj->num:0;
+	std::sort(matches, matches+numMatches, DistanceFromP1(lastf1Place));
+}
 
 long long stata = 0, statb = 0;
 void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsigned end,
 		DLink<Match> *place) {
 	const unsigned blocksize = h->blocksize;
 	Token buf1[blocksize], buf2[blocksize];
-	Token *inbuf = buf1, *outbuf = buf2;
-	unsigned buf_loc;
 	
-	const unsigned maxSectionMatches = 256;
-	Match checkMatch[maxSectionMatches];
-	int numcheckMatches;
-	for (unsigned j = start; j < end; ) {
-		inbuf = b->read2(inbuf, j, blocksize);
-		Hash hash = Hash(inbuf, h->blocksize);
-		buf_loc=blocksize;
-		j+=blocksize;
-
-		numcheckMatches = 0;
-
-		unsigned endi = end;
-		for (; j < endi; ++j) {
-			if (buf_loc==blocksize) {
-				buf_loc=0;
-				std::swap(inbuf, outbuf);
-				inbuf = b->read2(outbuf == buf1 ? buf2 : buf1, j, blocksize);
-			}
-			checksum_entry *c = h->htable[h->tableIndex(hash.getValue())];
-			if (c) {
-				do {
-					if (c->cksum==hash.getValue()) {
-						if (numcheckMatches>=maxSectionMatches) {
-							endi = j;
-							numcheckMatches=0;
-							break;
-						}
-						checkMatch[numcheckMatches++] = Match(c->loc, j-blocksize, 0);
-						endi = std::min(j+blocksize, endi);
+	const unsigned maxPMatch = 256;
+	PotentialMatch pMatch[maxPMatch];
+	int pMatchCount = 0;
+	unsigned processMatchesPos = end;
+	Token *inbuf = b->read2(buf1, start, blocksize),
+              *outbuf;
+	Hash hash = Hash(inbuf, h->blocksize);
+	unsigned buf_loc=blocksize;
+	unsigned j = start + blocksize;
+	Hash::Value lastChecksum = ~hash.getValue();
+	do {
+		checksum_entry *c = h->htable[h->tableIndex(hash.getValue())];
+		if (c && hash.getValue() != lastChecksum) {
+			do {
+				if (c->cksum==hash.getValue()) {
+					if (pMatchCount>=maxPMatch) {
+						// Keep the best 16
+						sortTMatches(place, pMatch, pMatchCount);
+						pMatchCount = 16;
+						++statb;
 					}
-					++c;
-				} while (h->tableIndex(c->cksum)==h->tableIndex(hash.getValue()));
-			}
-
-			const Token
-				oldToken = outbuf[buf_loc],
-				newToken = inbuf[buf_loc];
-			++buf_loc;
-			hash.advance(oldToken, newToken);
-		}
-
-		if (numcheckMatches) {
-			j = checkMatch[numcheckMatches-1].p2 + 1;
-			unsigned lastf1Place = place?place->obj->p1+place->obj->num:0;
-			std::sort(checkMatch, checkMatch+numcheckMatches, DistanceFromP1(lastf1Place));
-			//bool badMatch = (false && blocksize<=16 &&
-			//		(checkMatch[closestMatch].p1<lastf1Place ||
-			//		 checkMatch[closestMatch].p1>lastf1Place+blocksize));
-			for (int i = 0; i < numcheckMatches; ++i) {
-				unsigned p1 = checkMatch[i].p1, p2 = checkMatch[i].p2;
-				unsigned fnum = match_forward(b, p1, p2);
-				if (fnum >= blocksize) {
-					unsigned bnum = match_backward(b, p1, p2, blocksize);
-					unsigned num=fnum+bnum;
-					p1 -= bnum; p2 -= bnum;
-					addMatch(b, p1, p2, num, place);
-					j=p2+num;
-					//printf("p1: %i, p2: %i, num: %i\n", p1, p2, num);
-					++stata;
-					break;
-				} else {
-					++statb;
+					pMatch[pMatchCount++] = (PotentialMatch){c->loc, j-blocksize, c->cksum};
+					processMatchesPos = std::min(j+blocksize, processMatchesPos);
 				}
-			}
-
+				++c;
+			} while (h->tableIndex(c->cksum)==h->tableIndex(hash.getValue()));
 		}
-	}
+		lastChecksum = hash.getValue();
+
+		if (buf_loc==blocksize) {
+			buf_loc=0;
+			std::swap(inbuf, outbuf);
+			inbuf = b->read2(outbuf == buf1 ? buf2 : buf1, j,
+				std::min(end-j, blocksize));
+		}
+
+		const Token
+			oldToken = outbuf[buf_loc],
+			newToken = inbuf[buf_loc];
+		++buf_loc;
+		hash.advance(oldToken, newToken);
+		++j;
+
+
+
+		if (j < processMatchesPos)
+			continue;
+		
+		processMatchesPos = end;
+		sortTMatches(place, pMatch, pMatchCount);
+		for (int i = 0; i < pMatchCount; ++i) {
+			unsigned p1 = pMatch[i].p1, p2 = pMatch[i].p2;
+			unsigned fnum = match_forward(b, p1, p2);
+			if (fnum >= blocksize) {
+				for (unsigned betterP1 = p1-1; betterP1; --betterP1) {
+					unsigned nfnum = match_forward(b, betterP1, p2);
+					if (nfnum > fnum) {
+						fnum = nfnum;
+						p1 = betterP1;
+					} else
+						break;
+				}
+				unsigned bnum = match_backward(b, p1, p2, blocksize);
+				unsigned num=fnum+bnum;
+
+				p1 -= bnum; p2 -= bnum;
+				addMatch(b, p1, p2, num, place);
+				if (p2+num > j) {
+					// Fast foward over matched area.
+					j = p2+num;
+					inbuf = b->read2(inbuf, j, blocksize);
+					hash = Hash(inbuf, h->blocksize);
+					buf_loc=blocksize;
+					j+=blocksize;
+				}
+				++stata;
+				break;
+			}
+		}
+		pMatchCount = 0;
+	} while (j < end);
 }
 
 bool comparep1(Range r1, Range r2) {
@@ -336,11 +356,30 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 		for (unsigned loc = first; loc + blocksize <= last; loc += blocksize) {
 			Token buf[blocksize];
 			Token *read = b->read1(buf, loc, blocksize);
-			h.add((checksum_entry){Hash(read, h.blocksize).getValue(), loc});
+			Hash::Value blocksum = Hash(read, h.blocksize).getValue();
+			// Adjacent checksums are never repeated.
+			if (! h.numchecksums || blocksum != h.checksums[h.numchecksums-1].cksum)
+				h.add((checksum_entry){blocksum, loc});
 		}
 	}
-	if (h.numchecksums)
+	if (h.numchecksums) {
 		std::sort(h.checksums, h.checksums + h.numchecksums, Checksums_Compare(h));
+#ifndef THOROUGH
+		const unsigned maxIdenticalChecksums = 256;
+		int j = 0;
+		for (unsigned i = 0; i < h.numchecksums;) {
+			if (i + maxIdenticalChecksums < h.numchecksums &&
+					h.checksums[i].cksum == h.checksums[i+maxIdenticalChecksums].cksum) {
+				i += maxIdenticalChecksums;
+				Hash::Value cksum = h.checksums[i].cksum;
+				while (i < h.numchecksums && h.checksums[i].cksum == cksum) ++i;
+			} else {
+				h.checksums[j++] = h.checksums[i++];
+			}
+		}
+		h.numchecksums = j;
+#endif
+	}
 
 	h.checksums[h.numchecksums].cksum = 0;
 	h.checksums[h.numchecksums+1].cksum = (Hash::Value)-1;
@@ -364,7 +403,7 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 	delete unused;
 	delete h.htable;
 	delete h.checksums;
-	// printf("a = %.lli; b = %.lli\n", stata, statb);
+	printf("a = %.lli; b = %.lli\n", stata, statb);
 	// printf("Found %i matches\n", b->matches.size());
 	return b->matches.size();
 }

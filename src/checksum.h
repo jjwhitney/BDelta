@@ -16,8 +16,8 @@
 
 struct Hash {
 public:
-	typedef uint32_t Value;
-
+	typedef uint64_t Value;
+	Hash() {}
 	Hash(Token *buf, unsigned blocksize) {
 		value = 0;
 		for (int num = 0; num < blocksize; ++num)
