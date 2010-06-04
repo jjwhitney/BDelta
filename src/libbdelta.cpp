@@ -43,6 +43,7 @@ struct Range {
 
 struct Match {
 	unsigned p1, p2, num;
+	Match() {}
 	Match(unsigned p1, unsigned p2, unsigned num) 
 		{this->p1=p1; this->p2=p2; this->num=num;}
 };
@@ -150,6 +151,15 @@ void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, DLink<
 	place = b->matches.insert(new Match(p1, p2, num), place, next);
 }
 
+struct DistanceFromP1 {
+        unsigned place;
+        DistanceFromP1(unsigned place) {this->place = place;}
+	bool operator() (Match m1, Match m2) {
+		return (abs(place-m1.p1) < abs(place-m2.p1));
+	}
+};
+
+
 long long stata = 0, statb = 0;
 void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsigned end,
 		DLink<Match> *place) {
@@ -159,11 +169,9 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 	unsigned buf_loc;
 	
 	const unsigned maxSectionMatches = 256;
-	checksum_entry *checkMatches[maxSectionMatches];
-	int matchP2[maxSectionMatches];
+	Match checkMatch[maxSectionMatches];
 	int numcheckMatches;
-	int j = start;
-	while (j < end) {
+	for (unsigned j = start; j < end; ) {
 		inbuf = b->read2(inbuf, j, blocksize);
 		Hash hash = Hash(inbuf, h->blocksize);
 		buf_loc=blocksize;
@@ -180,20 +188,18 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 			}
 			checksum_entry *c = h->htable[h->tableIndex(hash.getValue())];
 			if (c) {
-				while (h->tableIndex(c->cksum)==h->tableIndex(hash.getValue())) {
+				do {
 					if (c->cksum==hash.getValue()) {
 						if (numcheckMatches>=maxSectionMatches) {
 							endi = j;
 							numcheckMatches=0;
 							break;
 						}
-						matchP2[numcheckMatches] = j-blocksize;
-						checkMatches[numcheckMatches++] = c;
-						if (endi==end) endi = j+blocksize;
-						if (endi>end) endi=end;
+						checkMatch[numcheckMatches++] = Match(c->loc, j-blocksize, 0);
+						endi = std::min(j+blocksize, endi);
 					}
 					++c;
-				} //else ++statb;
+				} while (h->tableIndex(c->cksum)==h->tableIndex(hash.getValue()));
 			}
 
 			const Token
@@ -204,21 +210,15 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 		}
 
 		if (numcheckMatches) {
+			j = checkMatch[numcheckMatches-1].p2 + 1;
 			unsigned lastf1Place = place?place->obj->p1+place->obj->num:0;
-			int closestMatch=0;
-			for (int i = 1; i < numcheckMatches; ++i)
-				if (abs(lastf1Place-checkMatches[i]->loc) <
-						abs(lastf1Place-checkMatches[closestMatch]->loc))
-					closestMatch=i;
-
-			bool badMatch = (false && blocksize<=16 &&
-					(checkMatches[closestMatch]->loc<lastf1Place ||
-					 checkMatches[closestMatch]->loc>lastf1Place+blocksize));
-			if (! badMatch) {
-				unsigned p1 = checkMatches[closestMatch]->loc, p2 = matchP2[closestMatch];
+			std::sort(checkMatch, checkMatch+numcheckMatches, DistanceFromP1(lastf1Place));
+			//bool badMatch = (false && blocksize<=16 &&
+			//		(checkMatch[closestMatch].p1<lastf1Place ||
+			//		 checkMatch[closestMatch].p1>lastf1Place+blocksize));
+			for (int i = 0; i < numcheckMatches; ++i) {
+				unsigned p1 = checkMatch[i].p1, p2 = checkMatch[i].p2;
 				unsigned fnum = match_forward(b, p1, p2);
-				// if (fnum<blocksize) falsematches++; else truematches++;
-
 				if (fnum >= blocksize) {
 					unsigned bnum = match_backward(b, p1, p2, blocksize);
 					unsigned num=fnum+bnum;
@@ -227,8 +227,12 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 					j=p2+num;
 					//printf("p1: %i, p2: %i, num: %i\n", p1, p2, num);
 					++stata;
-				} else ++statb;
+					break;
+				} else {
+					++statb;
+				}
 			}
+
 		}
 	}
 }

@@ -37,7 +37,7 @@ private:
 	typedef uint64_t ProcValue;
 	static const unsigned extraProcBits = (sizeof(ProcValue) - sizeof(Value)) * 8;
 
-	static const ProcValue multiplyAmount = (1ll << extraProcBits) + 181;
+	static const ProcValue multiplyAmount = (1ll << extraProcBits) | 181;
 	ProcValue oldCoefficient, value;
 
 	void advance_add(Token in) {
