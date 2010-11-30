@@ -9,7 +9,7 @@ python: bdelta_python.so
 libbdelta.so: libbdelta.cpp container.h checksum.h file.h
 	${CC} -shared -fPIC ${CXXFLAGS} $< -o $@
 bdelta_python.so: bdelta_python.cpp libbdelta.cpp container.h checksum.h file.h
-        ${CC} -shared -fPIC -lstdc++ $< -o $@ `python-config --includes` `python-config --ldflags`
+	${CC} -shared -fPIC -lstdc++ $< -o $@ `python-config --includes` `python-config --ldflags`
 bdelta: bdelta.cpp bdelta.h container.h file.h
 	${CC} $< -o $@ ${CXXFLAGS} -L. -lbdelta -lstdc++
 bpatch: bpatch.cpp bdelta.h file.h
