@@ -15,6 +15,7 @@
 
 #include "Python.h"
 #define TOKEN_SIZE 2
+#define ALLOW_OVERLAP
 #include "libbdelta.cpp"
 #include "string.h"
 void *mem_read(void *data, void *buf, unsigned place, unsigned num) {

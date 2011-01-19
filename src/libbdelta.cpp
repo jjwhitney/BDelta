@@ -128,24 +128,16 @@ void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, DLink<
 		place=place->prev;
 		b->matches.erase(toerase);
 	}
-/*
+#ifndef ALLOW_OVERLAP
 	if (place && place->obj->p2+place->obj->num>p2)
 		place->obj->num=p2-place->obj->p2;
-*/
-	// Code below performs nearly the same as above, but isn't as likely to split unicode characters.
-	if (place) {
-		unsigned lastPlace = place->obj->p2 + place->obj->num;
-		if (lastPlace > p2) {
-			unsigned diff = lastPlace - p2;
-			num -= diff;
-			p1 += diff;
-			p2 += diff;
-		}
-	}
+#endif
 	DLink<Match> *next = place?place->next:b->matches.first;
 	// if (next && p2>=next->obj->p2) {printf("Bad thing\n"); }// goto outofhere;
+#ifndef ALLOW_OVERLAP
 	if (next && p2+num>next->obj->p2)
 		num=next->obj->p2-p2;
+#endif
 	// printf("%i, %i, %i, %x, %x\n", p1, p2, num, place, next);
 	place = b->matches.insert(new Match(p1, p2, num), place, next);
 }
@@ -207,8 +199,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 		if (buf_loc==blocksize) {
 			buf_loc=0;
 			std::swap(inbuf, outbuf);
-			inbuf = b->read2(outbuf == buf1 ? buf2 : buf1, j,
-				std::min(end-j, blocksize));
+			inbuf = b->read2(outbuf == buf1 ? buf2 : buf1, j, std::min(end-j, blocksize));
 		}
 
 		const Token
@@ -247,7 +238,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 				if (p2+num > j) {
 					// Fast foward over matched area.
 					j = p2+num;
-					inbuf = b->read2(inbuf, j, blocksize);
+					inbuf = b->read2(buf1, j, std::min(end-j, blocksize));
 					hash = Hash(inbuf, h->blocksize);
 					buf_loc=blocksize;
 					j+=blocksize;
