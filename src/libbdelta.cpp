@@ -160,7 +160,9 @@ void sortTMatches(DLink<Match> *place, PotentialMatch *matches, unsigned numMatc
 	std::sort(matches, matches+numMatches, DistanceFromP1(lastf1Place));
 }
 
+#ifndef NDEBUG
 long long stata = 0, statb = 0;
+#endif
 void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsigned end,
 		DLink<Match> *place) {
 	const unsigned blocksize = h->blocksize;
@@ -186,7 +188,9 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 						// Keep the best 16
 						sortTMatches(place, pMatch, pMatchCount);
 						pMatchCount = 16;
+#ifndef NDEBUG
 						++statb;
+#endif
 					}
 					pMatch[pMatchCount++] = (PotentialMatch){c->loc, j-blocksize, c->cksum};
 					processMatchesPos = std::min(j+blocksize, processMatchesPos);
@@ -243,7 +247,9 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 					buf_loc=blocksize;
 					j+=blocksize;
 				}
+#ifndef NDEBUG
 				++stata;
+#endif
 				break;
 			}
 		}
@@ -397,7 +403,9 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 	delete unused;
 	delete h.htable;
 	delete h.checksums;
+#ifndef NDEBUG
 	printf("a = %.lli; b = %.lli\n", stata, statb);
+#endif
 	// printf("Found %i matches\n", b->matches.size());
 	return b->matches.size();
 }
