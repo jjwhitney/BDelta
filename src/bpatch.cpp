@@ -21,18 +21,18 @@ bool copy_bytes_to_file(FILE *infile, FILE *outfile, unsigned numleft) {
 	size_t numread;
 	do {
 		char buf[1024];
-		numread = fread(buf, 1, numleft>1024?1024:numleft, infile);
+		numread = fread(buf, 1, numleft > 1024 ? 1024 : numleft, infile);
 		if (fwrite(buf, 1, numread, outfile) != numread) {
 			printf("Could not write temporary data.  Possibly out of space\n");
 			return false;
 		}
-		numleft-=numread;
+		numleft -= numread;
 	} while (numleft && !(numread < 1024 && numleft));
-	return (numleft==0);
+	return (numleft == 0);
 }
 
 int main(int argc, char **argv) {
-	if (argc!=4) {
+	if (argc != 4) {
 		printf("needs a reference file, file to output, and patchfile:\n");
 		printf("delta oldfile newfile patchfile\n");
 		return 1;
@@ -51,13 +51,13 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	unsigned short version = read_word(patchfile);
-	if (version!=1) {
+	if (version != 1) {
 		printf("unsupported patch version\n");
 		return 1;
 	}
 	char intsize;
 	fread(&intsize, 1, 1, patchfile);
-	if (intsize!=4) {
+	if (intsize != 4) {
 		printf("unsupported file pointer size\n");
 		return 1;
 	}
@@ -67,19 +67,19 @@ int main(int argc, char **argv) {
 	unsigned nummatches = read_dword(patchfile);
 
 	unsigned
-		*copyloc1 = new unsigned[nummatches+1],
-		*copyloc2 = new unsigned[nummatches+1],
-		*copynum  = new unsigned[nummatches+1];
+		*copyloc1 = new unsigned[nummatches + 1],
+		*copyloc2 = new unsigned[nummatches + 1],
+		*copynum  = new unsigned[nummatches + 1];
 
 	for (int i = 0; i < nummatches; ++i) {
 		copyloc1[i] = read_dword(patchfile);
 		copyloc2[i] = read_dword(patchfile);
 		copynum[i] = read_dword(patchfile);
-		size2-=copyloc2[i]+copynum[i];
+		size2 -= copyloc2[i] + copynum[i];
 	}
 	if (size2) {
-		copyloc1[nummatches]=0; copynum[nummatches]=0; 
-		copyloc2[nummatches]=size2;
+		copyloc1[nummatches] = 0; copynum[nummatches] = 0; 
+		copyloc2[nummatches] = size2;
 		++nummatches;
 	}
   

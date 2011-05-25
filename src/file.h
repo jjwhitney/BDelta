@@ -17,29 +17,29 @@ unsigned read_word(FILE *f) {
 	unsigned char b, b2;
 	fread(&b, 1, 1, f);
 	fread(&b2, 1, 1, f);
-	return (b2<<8)+b;
+	return (b2 << 8) + b;
 }
 
 unsigned read_dword(FILE *f) {
 	unsigned low = read_word(f);
-	return (read_word(f)<<16)+low;
+	return (read_word(f) << 16) + low;
 }
 
 void write_word(FILE *f, unsigned number) {
-	unsigned char b = number&255;
+	unsigned char b = number & 255;
 	fwrite(&b, 1, 1, f);
-	b = number>>8;
+	b = number >> 8;
 	fwrite(&b, 1, 1, f);
 }
 
 void write_dword(FILE *f, unsigned number) {
-	write_word(f, number&65535);
-	write_word(f, number>>16);
+	write_word(f, number & 65535);
+	write_word(f, number >> 16);
 }
 
 bool fileExists(char *fname) {
 	FILE *f = fopen(fname, "rb");
-	bool exists = (f!=NULL);
+	bool exists = (f != NULL);
 	if (exists) fclose(f);
 	return exists;
 }

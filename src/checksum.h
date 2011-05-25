@@ -30,7 +30,7 @@ public:
 	}
 	static unsigned modulo(Value hash, unsigned d) {
 		// Assumes d is power of 2.
-		return hash & (d-1);
+		return hash & (d - 1);
 	}
 	Value getValue() {return value >> extraProcBits;}
 private:
@@ -50,9 +50,9 @@ private:
 	static ProcValue powHash(ProcValue x, unsigned y) {
 		ProcValue res = 1;
 		while (y) {
-			if (y&1) res*=x;
-			x*=x;
-			y>>=1;
+			if (y & 1) res *= x;
+			x *= x;
+			y >>= 1;
 		}
 		return res;
 	}

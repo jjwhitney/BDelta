@@ -18,9 +18,9 @@
 // long as the data persists throughout the life of bdelta_pass().
 typedef void *(*bdelta_readCallback)(void *handle, void *buf, unsigned place, unsigned num);
 
-void *bdelta_init_alg(unsigned data1_size, unsigned data2_size, 
-                      bdelta_readCallback cb, void *handle1, void *handle2,
-                      unsigned tokenSize);
+void *bdelta_init_alg(unsigned data1_size, unsigned data2_size,
+		bdelta_readCallback cb, void *handle1, void *handle2,
+		unsigned tokenSize);
 void  bdelta_done_alg(void *instance);
 
 //returns the total number of matches found
@@ -32,6 +32,6 @@ void bdelta_getMatch(void *instance, unsigned matchNum,
 int bdelta_getError(void *instance);
 
 const int
-	BDELTA_OK			= 0,
-	BDELTA_MEM_ERROR	= -1,
-	BDELTA_READ_ERROR	= -2;
+	BDELTA_OK         =  0,
+	BDELTA_MEM_ERROR  = -1,
+	BDELTA_READ_ERROR = -2;

@@ -25,7 +25,7 @@ void *f_read(void *f, void *buf, unsigned place, unsigned num) {
 }
 
 int main(int argc, char **argv) {
-	if (argc!=4) {
+	if (argc != 4) {
 		printf("needs two files to compare + output file:\n");
 		printf("delta oldfile newfile patchfile\n");
 		exit(1);
@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
 
 	void *b = bdelta_init_alg(size, size2, f_read, f1, f2, 1);
 	int nummatches;
-	for (int i = 512; i >= 16; i/=2)
+	for (int i = 512; i >= 16; i /= 2)
 		nummatches = bdelta_pass(b, i);
 
 	unsigned copyloc1[nummatches+1];
@@ -70,18 +70,18 @@ int main(int argc, char **argv) {
 		unsigned p1, p2, num;
 		bdelta_getMatch(b, i, &p1, &p2, &num);
 		// printf("%*x, %*x, %*x, %*x\n", 10, p1, 10, p2, 10, num, 10, p2-lastp2);
-		copyloc1[i] = p1-lastp1;
+		copyloc1[i] = p1 - lastp1;
 		write_dword(fout, copyloc1[i]);
-		copyloc2[i] = p2-lastp2;
+		copyloc2[i] = p2 - lastp2;
 		write_dword(fout, copyloc2[i]);
 		copynum[i] = num;
 		write_dword(fout, copynum[i]);
-		lastp1=p1+num;
-		lastp2=p2+num;
+		lastp1 = p1 + num;
+		lastp2 = p2 + num;
 	}
-	if (size2!=lastp2) {
-		copyloc1[nummatches]=0; copynum[nummatches]=0; 
-		copyloc2[nummatches]=size2-lastp2;
+	if (size2 != lastp2) {
+		copyloc1[nummatches] = 0; copynum[nummatches] = 0; 
+		copyloc2[nummatches] = size2 - lastp2;
 		++nummatches;
 	}
 
@@ -95,16 +95,16 @@ int main(int argc, char **argv) {
 	unsigned fp = 0;
 	for (int i = 0; i < nummatches; ++i) {
 		unsigned num = copyloc2[i];
-		while (num>0) {
+		while (num > 0) {
 			unsigned towrite = (num > 4096) ? 4096 : num;
 			unsigned char buf[4096];
 			f_read(f2, buf, fp, towrite);
 			fwrite(buf, towrite, 1, fout);
-			num-=towrite;
-			fp+=towrite;
+			num -= towrite;
+			fp += towrite;
 		}
 		// fp+=copyloc2[i];
-		if (i!=nummatches) fp+=copynum[i];
+		if (i != nummatches) fp += copynum[i];
 	}
  
 	fclose(fout);

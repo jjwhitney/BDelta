@@ -28,7 +28,7 @@ public:
 	void push(T* t) {s = new Stack_node(t, s);}
 	void pop() {Stack_node *old = s; s = s->next; delete old;}
 	T& top() {return *((T*)s->data);}
-	bool empty() {return (s==0);}
+	bool empty() {return (s == 0);}
 	void clear() {while (!empty()) pop();}
 };
 */
@@ -53,12 +53,12 @@ struct DList {
 	DLink<T> *first, *last;
 	DList() : first(0), last(0) {}
 	DLink<T> *find_first(T *o) {
-		for (DLink<T> *i = first; i; i=i->next)
-			if (i->obj==o) return i;
+		for (DLink<T> *i = first; i; i = i->next)
+			if (i->obj == o) return i;
 		return 0;
 	}
 
-	int size() {int j = 0; for (DLink<T> *i = first; i; i=i->next) ++j; return j;}
+	int size() {int j = 0; for (DLink<T> *i = first; i; i = i->next) ++j; return j;}
 	DLink<T> *insert(T *o, DLink<T> *prev, DLink<T> *next);
 	void push_front(T *o) {insert(o, 0, first);}
 	void push_back(T *o) {insert(o, last, 0);}
@@ -76,7 +76,7 @@ DLink<T> *DList<T>::insert(T *o, DLink<T> *prev, DLink<T> *next) {
 
 template <class T>
 void DList<T>::erase(DLink<T> *obj) {
-	if (obj==first) first=obj->next;
-	if (obj==last) last=obj->prev;
+	if (obj == first) first=obj->next;
+	if (obj == last) last=obj->prev;
 	obj->erase();
 }
