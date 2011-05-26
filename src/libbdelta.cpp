@@ -13,7 +13,7 @@
  * Author: John Whitney <jjw@deltup.org>
  */
 #include <stdint.h>
- 
+
 #if !defined(TOKEN_SIZE) || TOKEN_SIZE == 1
 typedef uint8_t Token;
 #elif TOKEN_SIZE == 2
@@ -27,18 +27,22 @@ typedef uint32_t Token;
 #include "container.h"
 #include "bdelta.h"
 #include "checksum.h"
+#include "compatibility.h"
+#include <limits>
 #include <algorithm>
-
 const bool verbose = false;
 struct checksum_entry {
 	Hash::Value cksum; //Rolling checksums
 	unsigned loc;
+	checksum_entry() {}
+	checksum_entry(Hash::Value cksum, unsigned loc)
+		{this->cksum = cksum; this->loc = loc;}
 };
 
 struct Range {
 	unsigned p, num;
-	Range(unsigned p, unsigned num) {this->p = p; this->num = num;}
 	Range() {}
+	Range(unsigned p, unsigned num) {this->p = p; this->num = num;}
 };
 
 struct Match {
@@ -145,13 +149,21 @@ void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, DLink<
 struct PotentialMatch {
 	unsigned p1, p2;
 	Hash::Value cksum;
+	PotentialMatch() {}
+	PotentialMatch(unsigned p1, unsigned p2, Hash::Value cksum)
+		{this->p1 = p1; this->p2 = p2; this->cksum = cksum;}
 };
+
+template<class T>
+T absoluteDifference(T a, T b) {
+	return std::max(a, b) - std::min(a, b);
+}
 
 struct DistanceFromP1 {
 	unsigned place;
 	DistanceFromP1(unsigned place) {this->place = place;}
 	bool operator() (PotentialMatch m1, PotentialMatch m2) {
-		return (abs(place - m1.p1) < abs(place - m2.p1));
+		return absoluteDifference(place, m1.p1) < absoluteDifference(place, m2.p1);
 	}
 };
 
@@ -166,7 +178,8 @@ long long stata = 0, statb = 0;
 void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsigned end,
 		DLink<Match> *place) {
 	const unsigned blocksize = h->blocksize;
-	Token buf1[blocksize], buf2[blocksize];
+	STACK_ALLOC(buf1, Token, blocksize);
+	STACK_ALLOC(buf2, Token, blocksize);
 	
 	const unsigned maxPMatch = 256;
 	PotentialMatch pMatch[maxPMatch];
@@ -192,7 +205,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 						++statb;
 #endif
 					}
-					pMatch[pMatchCount++] = (PotentialMatch){c->loc, j-blocksize, c->cksum};
+					pMatch[pMatchCount++] = PotentialMatch(c->loc, j-blocksize, c->cksum);
 					processMatchesPos = std::min(j + blocksize, processMatchesPos);
 				}
 				++c;
@@ -351,15 +364,15 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 
 	h.numchecksums = 0;
 	// unsigned numchecksums = 0;
+	STACK_ALLOC(buf, Token, blocksize);
 	for (unsigned i = 0; i < numunused; ++i) {
 		unsigned first = unused[i].p, last = unused[i].p + unused[i].num;
 		for (unsigned loc = first; loc + blocksize <= last; loc += blocksize) {
-			Token buf[blocksize];
 			Token *read = b->read1(buf, loc, blocksize);
 			Hash::Value blocksum = Hash(read, h.blocksize).getValue();
 			// Adjacent checksums are never repeated.
 			if (! h.numchecksums || blocksum != h.checksums[h.numchecksums-1].cksum)
-				h.add((checksum_entry){blocksum, loc});
+				h.add(checksum_entry(blocksum, loc));
 		}
 	}
 	if (h.numchecksums) {
@@ -382,7 +395,7 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 	}
 
 	h.checksums[h.numchecksums].cksum = 0;
-	h.checksums[h.numchecksums+1].cksum = (Hash::Value)-1;
+	h.checksums[h.numchecksums + 1].cksum = std::numeric_limits<Hash::Value>::max();
 
 	for (unsigned i = 0; i < h.htablesize; ++i) h.htable[i] = 0;
 	for (int i = h.numchecksums - 1; i >= 0; --i)

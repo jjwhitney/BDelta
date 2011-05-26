@@ -12,10 +12,11 @@
  *
  * Author: John Whitney <jjw@deltup.org>
  */
- 
+
 #include <stdio.h>
 #include <string.h>
 #include "file.h"
+#include "compatibility.h"
 
 bool copy_bytes_to_file(FILE *infile, FILE *outfile, unsigned numleft) {
 	size_t numread;
@@ -37,7 +38,7 @@ int main(int argc, char **argv) {
 		printf("delta oldfile newfile patchfile\n");
 		return 1;
 	}
-  
+
 	if (!fileExists(argv[1]) || !fileExists(argv[3])) {
 		printf("one of the input files does not exist\n");
 		return 1;
@@ -66,10 +67,9 @@ int main(int argc, char **argv) {
 
 	unsigned nummatches = read_dword(patchfile);
 
-	unsigned
-		*copyloc1 = new unsigned[nummatches + 1],
-		*copyloc2 = new unsigned[nummatches + 1],
-		*copynum  = new unsigned[nummatches + 1];
+	STACK_ALLOC(copyloc1, unsigned, nummatches + 1);
+	STACK_ALLOC(copyloc2, unsigned, nummatches + 1);
+	STACK_ALLOC(copynum, unsigned, nummatches + 1);
 
 	for (int i = 0; i < nummatches; ++i) {
 		copyloc1[i] = read_dword(patchfile);
@@ -82,11 +82,10 @@ int main(int argc, char **argv) {
 		copyloc2[nummatches] = size2;
 		++nummatches;
 	}
-  
+
 	FILE *ref = fopen(argv[1], "rb");
 	FILE *outfile = fopen(argv[2], "wb");
-  
-	char *buf;
+
 	for (int i = 0; i < nummatches; ++i) {
 		if (!copy_bytes_to_file(patchfile, outfile, copyloc2[i])) {
 			printf("Error.  patchfile is truncated\n");

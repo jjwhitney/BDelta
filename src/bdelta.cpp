@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include "bdelta.h"
 #include "file.h"
+#include "compatibility.h"
 
 void *f_read(void *f, void *buf, unsigned place, unsigned num) {
 	fseek((FILE *)f, place, SEEK_SET);
@@ -44,9 +45,9 @@ int main(int argc, char **argv) {
 	for (int i = 512; i >= 16; i /= 2)
 		nummatches = bdelta_pass(b, i);
 
-	unsigned copyloc1[nummatches+1];
-	unsigned copyloc2[nummatches+1];
-	unsigned copynum[nummatches+1];
+	STACK_ALLOC(copyloc1, unsigned, nummatches + 1);
+	STACK_ALLOC(copyloc2, unsigned, nummatches + 1);
+	STACK_ALLOC(copynum, unsigned, nummatches + 1);
 
 	FILE *fout = fopen(argv[3], "wb");
 	if (!fout) {
