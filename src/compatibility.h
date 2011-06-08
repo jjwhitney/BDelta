@@ -16,7 +16,7 @@
 // Fix for MSVC++, which doesn't support Variable Length Arrays.
 #ifdef _MSC_VER
 	#include <malloc.h>
-	#define STACK_ALLOC(name, type, num) type *name = (type *)alloca(sizeof(type) * num),
+	#define STACK_ALLOC(name, type, num) type *name = (type *)alloca(sizeof(type) * num)
 #else
 	#define STACK_ALLOC(name, type, num) type name[num]
 #endif
