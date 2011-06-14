@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
 	STACK_ALLOC(copyloc2, unsigned, nummatches + 1);
 	STACK_ALLOC(copynum, unsigned, nummatches + 1);
 
-	for (int i = 0; i < nummatches; ++i) {
+	for (unsigned i = 0; i < nummatches; ++i) {
 		copyloc1[i] = read_dword(patchfile);
 		copyloc2[i] = read_dword(patchfile);
 		copynum[i] = read_dword(patchfile);
@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
 	FILE *ref = fopen(argv[1], "rb");
 	FILE *outfile = fopen(argv[2], "wb");
 
-	for (int i = 0; i < nummatches; ++i) {
+	for (unsigned i = 0; i < nummatches; ++i) {
 		if (!copy_bytes_to_file(patchfile, outfile, copyloc2[i])) {
 			printf("Error.  patchfile is truncated\n");
 			return -1;

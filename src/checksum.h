@@ -20,7 +20,7 @@ public:
 	Hash() {}
 	Hash(Token *buf, unsigned blocksize) {
 		value = 0;
-		for (int num = 0; num < blocksize; ++num)
+		for (unsigned num = 0; num < blocksize; ++num)
 			advance_add(buf[num]);
 		oldCoefficient = powHash(multiplyAmount, blocksize);
 	}

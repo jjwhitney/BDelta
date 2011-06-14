@@ -317,7 +317,7 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 
 	Range *unused = new Range[b->matches.size() + 1];
 	if (!unused) {b->errorcode = BDELTA_MEM_ERROR; return 0;}
-	int numunused = 0;
+	unsigned numunused = 0;
 	for (DLink<Match> *l = b->matches.first; l; l = l->next)
 		unused[numunused++] = Range(l->obj->p1, l->obj->num);
 
@@ -428,12 +428,12 @@ void bdelta_getMatch(void *instance, unsigned matchNum,
 	BDelta_Instance *b = (BDelta_Instance*)instance;
 	int &access_int = b->access_int;
 	DLink<Match> *&accessplace = b->accessplace;
-	if (access_int == -1) {access_int = 0; accessplace=b->matches.first;}
-	while (access_int<matchNum) {
+	if (access_int == -1) {access_int = 0; accessplace = b->matches.first;}
+	while ((unsigned)access_int < matchNum) {
 		accessplace = accessplace->next;
 		++access_int;
 	}
-	while (access_int>matchNum) {
+	while ((unsigned)access_int > matchNum) {
 		accessplace = accessplace->prev;
 		--access_int;
 	}
