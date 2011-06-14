@@ -22,7 +22,7 @@ void *mem_read(void *data, void *buf, unsigned place, unsigned num) {
 	return ((Token*)data) + place;
 }
 
-void dumpContent(char *name, char *s, size_t len) {
+void dumpContent(const char *name, char *s, size_t len) {
 	printf("%s: ", name);
 	for (int i = 0; i < len; ++i)
 		if (isprint(s[i]))

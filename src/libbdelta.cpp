@@ -285,14 +285,14 @@ void *bdelta_init_alg(unsigned data1_size, unsigned data2_size,
 		bdelta_readCallback cb, void *handle1, void *handle2,
 		unsigned tokenSize) {
 	if (tokenSize != sizeof(Token)) {
-		printf("Error: BDelta library compiled for token size of %d.\n", sizeof(Token));
+		printf("Error: BDelta library compiled for token size of %lu.\n", sizeof(Token));
 		return 0;
 	}
 	BDelta_Instance *b = new BDelta_Instance;
 	if (!b) return 0;
 	b->data1_size = data1_size;
 	b->data2_size = data2_size;
-        b->cb = cb;
+	b->cb = cb;
 	b->handle1 = handle1;
 	b->handle2 = handle2;
 	b->access_int = -1;
@@ -405,7 +405,7 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 
 	last = 0;
 	for (DLink<Match> *l = b->matches.first; l; l=l->next) {
-		if (l->obj->p2 - last >= blocksize)    
+		if (l->obj->p2 - last >= blocksize)
 			findMatches(b, &h, last, l->obj->p2, l->prev);
 		last = l->obj->p2+l->obj->num;
 	}

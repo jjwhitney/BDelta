@@ -21,7 +21,7 @@
 
 void *f_read(void *f, void *buf, unsigned place, unsigned num) {
 	fseek((FILE *)f, place, SEEK_SET);
-	fread(buf, num, 1, (FILE *)f);
+	fread_fixed((FILE *)f, buf, num);
 	return buf;
 }
 
@@ -55,12 +55,12 @@ int main(int argc, char **argv) {
 		exit(1);
 	}
 
-	char *magic = "BDT";
-	fwrite(magic, 1, 3, fout);
+	const char *magic = "BDT";
+	fwrite_fixed(fout, magic, 3);
 	unsigned short version = 1;
 	write_word(fout, version);
 	unsigned char intsize = 4;
-	fwrite(&intsize, 1, 1, fout);
+	fwrite_fixed(fout, &intsize, 1);
 	write_dword(fout, size);
 	write_dword(fout, size2);
 	write_dword(fout, nummatches);
@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
 			unsigned towrite = (num > 4096) ? 4096 : num;
 			unsigned char buf[4096];
 			f_read(f2, buf, fp, towrite);
-			fwrite(buf, towrite, 1, fout);
+			fwrite_fixed(fout, buf, towrite);
 			num -= towrite;
 			fp += towrite;
 		}

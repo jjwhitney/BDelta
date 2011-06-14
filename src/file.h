@@ -12,11 +12,21 @@
  *
  * Author: John Whitney <jjw@deltup.org>
  */
- 
+
+void fread_fixed(FILE *f, void *buf, unsigned num_bytes) {
+	if (fread(&buf, 1, num_bytes, f) != num_bytes)
+		throw "File read error.";
+}
+
+void fwrite_fixed(FILE *f, const void *buf, unsigned num_bytes) {
+	if (fwrite(&buf, 1, num_bytes, f) != num_bytes)
+		throw "File write error.";
+}
+
 unsigned read_word(FILE *f) {
 	unsigned char b, b2;
-	fread(&b, 1, 1, f);
-	fread(&b2, 1, 1, f);
+	fread_fixed(f, &b, 1);
+	fread_fixed(f, &b2, 1);
 	return (b2 << 8) + b;
 }
 
@@ -26,10 +36,10 @@ unsigned read_dword(FILE *f) {
 }
 
 void write_word(FILE *f, unsigned number) {
-	unsigned char b = number & 255;
-	fwrite(&b, 1, 1, f);
-	b = number >> 8;
-	fwrite(&b, 1, 1, f);
+	unsigned char b = number & 255,
+	              b2 = number >> 8;
+	fwrite_fixed(f, &b, 1);
+	fwrite_fixed(f, &b2, 1);
 }
 
 void write_dword(FILE *f, unsigned number) {

@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
 
 	FILE *patchfile = fopen(argv[3], "rb");
 	char magic[3];
-	fread(magic, 1, 3, patchfile);
+	fread_fixed(patchfile, magic, 3);
 	if (strncmp(magic, "BDT", 3)) {
 		printf("Given file is not a recognized patchfile\n");
 		return 1;
@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	char intsize;
-	fread(&intsize, 1, 1, patchfile);
+	fread_fixed(patchfile, &intsize, 1);
 	if (intsize != 4) {
 		printf("unsupported file pointer size\n");
 		return 1;
