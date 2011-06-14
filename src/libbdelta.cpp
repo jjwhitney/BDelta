@@ -12,7 +12,7 @@
  *
  * Author: John Whitney <jjw@deltup.org>
  */
-#include <stdint.h>
+#include "compatibility.h"
 
 #if !defined(TOKEN_SIZE) || TOKEN_SIZE == 1
 typedef uint8_t Token;
@@ -27,7 +27,6 @@ typedef uint32_t Token;
 #include "container.h"
 #include "bdelta.h"
 #include "checksum.h"
-#include "compatibility.h"
 #include <limits>
 #include <algorithm>
 const bool verbose = false;
