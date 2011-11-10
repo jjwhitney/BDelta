@@ -91,13 +91,13 @@ unsigned match_buf_forward(void *buf1, void *buf2, unsigned num) {
 unsigned match_buf_backward(void *buf1, void *buf2, unsigned num) { 
 	int i = num;
 	do --i;
-	while (i>=0 && ((Token*)buf1)[i] == ((Token*)buf2)[i]);
+	while (i >= 0 && ((Token*)buf1)[i] == ((Token*)buf2)[i]);
 	return num - i - 1;
 }
 unsigned match_forward(BDelta_Instance *b, unsigned p1, unsigned p2) { 
 	unsigned num = 0, match, numtoread;
 	do {
-		numtoread=std::min(b->data1_size-p1, b->data2_size-p2);
+		numtoread = std::min(b->data1_size - p1, b->data2_size - p2);
 		if (numtoread > 4096) numtoread = 4096;
 		Token buf1[4096], buf2[4096];
 		Token *read1 = b->read1(buf1, p1, numtoread),
@@ -128,15 +128,15 @@ unsigned match_backward(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned b
 void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, DLink<Match> *&place) {
 	while (place && place->obj->p2 >= p2) {
 		DLink<Match> *toerase = place;
-		place=place->prev;
+		place = place->prev;
 		b->matches.erase(toerase);
 	}
 #ifndef ALLOW_OVERLAP
 	if (place && place->obj->p2 + place->obj->num > p2)
 		place->obj->num = p2 - place->obj->p2;
 #endif
-	DLink<Match> *next = place?place->next:b->matches.first;
-	// if (next && p2>=next->obj->p2) {printf("Bad thing\n"); }// goto outofhere;
+	DLink<Match> *next = place ? place->next : b->matches.first;
+	// if (next && p2 >= next->obj->p2) {printf("Bad thing\n");}// goto outofhere;
 #ifndef ALLOW_OVERLAP
 	if (next && p2 + num > next->obj->p2)
 		num = next->obj->p2 - p2;
@@ -204,7 +204,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 						++statb;
 #endif
 					}
-					pMatch[pMatchCount++] = PotentialMatch(c->loc, j-blocksize, c->cksum);
+					pMatch[pMatchCount++] = PotentialMatch(c->loc, j - blocksize, c->cksum);
 					processMatchesPos = std::min(j + blocksize, processMatchesPos);
 				}
 				++c;
@@ -237,7 +237,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 			unsigned fnum = match_forward(b, p1, p2);
 			if (fnum >= blocksize) {
 #ifdef THOROUGH
-				for (unsigned betterP1 = p1-1; betterP1; --betterP1) {
+				for (unsigned betterP1 = p1 - 1; betterP1; --betterP1) {
 					unsigned nfnum = match_forward(b, betterP1, p2);
 					if (nfnum > fnum) {
 						fnum = nfnum;
@@ -247,13 +247,13 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 				}
 #endif
 				unsigned bnum = match_backward(b, p1, p2, blocksize);
-				unsigned num=fnum+bnum;
+				unsigned num = fnum + bnum;
 
 				p1 -= bnum; p2 -= bnum;
 				addMatch(b, p1, p2, num, place);
-				if (p2+num > j) {
+				if (p2 + num > j) {
 					// Fast foward over matched area.
-					j = p2+num;
+					j = p2 + num;
 					inbuf = b->read2(buf1, j, std::min(end - j, blocksize));
 					hash = Hash(inbuf, h->blocksize);
 					buf_loc = blocksize;
@@ -346,14 +346,14 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 	}
 
 	if (verbose) printf("Starting search for matching blocks of size %i\n", blocksize);
-	// numblocks=size/blocksize;
+	// numblocks = size / blocksize;
 	if (verbose) printf("found %i blocks\n", numblocks);
 	h.htablesize = 1 << 16;
 	while (h.htablesize < numblocks) h.htablesize <<= 1;
-	// h.htablesize<<=2;
-	// htablesize>>=0;
+	// h.htablesize <<= 2;
+	// htablesize >>= 0;
 	if (verbose) printf("creating hash table of size %i\n", h.htablesize);
-	// h.htablesize=65536;
+	// h.htablesize = 65536;
 	h.htable = new checksum_entry*[h.htablesize];
 	if (!h.htable) {b->errorcode = BDELTA_MEM_ERROR; return 0;}
 	h.checksums = new checksum_entry[numblocks + 2];
@@ -370,7 +370,7 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 			Token *read = b->read1(buf, loc, blocksize);
 			Hash::Value blocksum = Hash(read, h.blocksize).getValue();
 			// Adjacent checksums are never repeated.
-			if (! h.numchecksums || blocksum != h.checksums[h.numchecksums-1].cksum)
+			if (! h.numchecksums || blocksum != h.checksums[h.numchecksums - 1].cksum)
 				h.add(checksum_entry(blocksum, loc));
 		}
 	}
@@ -381,7 +381,7 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 		int j = 0;
 		for (unsigned i = 0; i < h.numchecksums;) {
 			if (i + maxIdenticalChecksums < h.numchecksums &&
-					h.checksums[i].cksum == h.checksums[i+maxIdenticalChecksums].cksum) {
+					h.checksums[i].cksum == h.checksums[i + maxIdenticalChecksums].cksum) {
 				i += maxIdenticalChecksums;
 				Hash::Value cksum = h.checksums[i].cksum;
 				while (i < h.numchecksums && h.checksums[i].cksum == cksum) ++i;
@@ -404,10 +404,10 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 	if (verbose) printf("compare files\n");
 
 	last = 0;
-	for (DLink<Match> *l = b->matches.first; l; l=l->next) {
+	for (DLink<Match> *l = b->matches.first; l; l = l->next) {
 		if (l->obj->p2 - last >= blocksize)
 			findMatches(b, &h, last, l->obj->p2, l->prev);
-		last = l->obj->p2+l->obj->num;
+		last = l->obj->p2 + l->obj->num;
 	}
 	if (b->data2_size - last >= blocksize) 
 		findMatches(b, &h, last, b->data2_size, b->matches.last);
