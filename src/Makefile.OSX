@@ -1,5 +1,5 @@
 CXXFLAGS=-D NDEBUG -O3
-all: libbdelta.dylib bdelta bpatch python
+all: libbdelta.dylib bdelta bpatch
 libbdelta.dylib: libbdelta.cpp compatibility.h container.h checksum.h file.h
 	${CC} -dynamiclib -lstdc++ ${CXXFLAGS} $< -o $@
 bdelta: bdelta.cpp compatibility.h bdelta.h container.h file.h
