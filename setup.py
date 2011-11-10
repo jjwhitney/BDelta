@@ -6,5 +6,5 @@ setup(name='bdelta_python',
       author='John Whitney',
       author_email='jjw@deltup.org',
       url='http://deltup.org',
-      ext_modules=[Extension('src/bdelta_python', ['src/bdelta_python.cpp'])],
+      ext_modules=[Extension('bdelta_python', ['src/bdelta_python.cpp'])],
      )
