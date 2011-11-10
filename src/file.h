@@ -14,12 +14,12 @@
  */
 
 void fread_fixed(FILE *f, void *buf, unsigned num_bytes) {
-	if (fread(&buf, 1, num_bytes, f) != num_bytes)
+	if (fread(buf, 1, num_bytes, f) != num_bytes)
 		throw "File read error.";
 }
 
 void fwrite_fixed(FILE *f, const void *buf, unsigned num_bytes) {
-	if (fwrite(&buf, 1, num_bytes, f) != num_bytes)
+	if (fwrite(buf, 1, num_bytes, f) != num_bytes)
 		throw "File write error.";
 }
 
