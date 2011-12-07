@@ -11,7 +11,7 @@ all: $(ALL_TARGETS)
 libbdelta.so: libbdelta.cpp compatibility.h container.h checksum.h file.h
 	$(CXX) -shared -fPIC $(CXXFLAGS) $(LDFLAGS) $< -o $@
 
-bdelta: bdelta.cpp bdelta.h compatibility.h container.h file.h
+bdelta: bdelta.cpp bdelta.h compatibility.h container.h file.h libbdelta.so
 	$(CXX) $< -o $@ $(CXXFLAGS) $(LDFLAGS) -L. -lbdelta
 
 bpatch: bpatch.cpp compatibility.h bdelta.h file.h
