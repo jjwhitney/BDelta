@@ -21,6 +21,7 @@ bpatch: bpatch.cpp compatibility.h bdelta.h file.h
 
 install: libbdelta.so bdelta bpatch
 	mkdir -p $(DESTDIR)$(BINDIR)
+	mkdir -p $(DESTDIR)$(LIBDIR)
 	install -m 755 libbdelta.so $(DESTDIR)$(LIBDIR)
 	install -m 755 bdelta $(DESTDIR)$(BINDIR)
 	install -m 755 bpatch $(DESTDIR)$(BINDIR)
