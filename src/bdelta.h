@@ -13,6 +13,10 @@
  * Author: John Whitney <jjw@deltup.org>
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 // Callback function must return a pointer to the data requested.
 // A "fill and forget" buffer is provided, but can be ignored, so
 // long as the data persists throughout the life of bdelta_pass().
@@ -31,7 +35,12 @@ void bdelta_getMatch(void *instance, unsigned matchNum,
 
 int bdelta_getError(void *instance);
 
-const int
+enum BDELTA_RESULT {
 	BDELTA_OK         =  0,
 	BDELTA_MEM_ERROR  = -1,
-	BDELTA_READ_ERROR = -2;
+	BDELTA_READ_ERROR = -2
+};
+
+#ifdef __cplusplus
+}
+#endif // __cplusplus
