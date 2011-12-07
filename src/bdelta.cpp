@@ -45,9 +45,9 @@ int main(int argc, char **argv) {
 	for (int i = 512; i >= 16; i /= 2)
 		nummatches = bdelta_pass(b, i);
 
-	STACK_ALLOC(copyloc1, unsigned, nummatches + 1);
-	STACK_ALLOC(copyloc2, unsigned, nummatches + 1);
-	STACK_ALLOC(copynum, unsigned, nummatches + 1);
+	unsigned * copyloc1 = new unsigned[nummatches + 1];
+	unsigned * copyloc2 = new unsigned[nummatches + 1];
+	unsigned *  copynum = new unsigned[nummatches + 1];
 
 	FILE *fout = fopen(argv[3], "wb");
 	if (!fout) {
@@ -114,4 +114,10 @@ int main(int argc, char **argv) {
 
 	fclose(f1);
 	fclose(f2);
+
+	delete [] copynum;
+	delete [] copyloc2;
+	delete [] copyloc1;
+
+	return 0;
 }

@@ -67,9 +67,9 @@ int main(int argc, char **argv) {
 
 	unsigned nummatches = read_dword(patchfile);
 
-	STACK_ALLOC(copyloc1, unsigned, nummatches + 1);
-	STACK_ALLOC(copyloc2, unsigned, nummatches + 1);
-	STACK_ALLOC(copynum, unsigned, nummatches + 1);
+	unsigned * copyloc1 = new unsigned[nummatches + 1];
+	unsigned * copyloc2 = new unsigned[nummatches + 1];
+	unsigned *  copynum = new unsigned[nummatches + 1];
 
 	for (unsigned i = 0; i < nummatches; ++i) {
 		copyloc1[i] = read_dword(patchfile);
@@ -100,5 +100,10 @@ int main(int argc, char **argv) {
 			return -1;
 		}
 	}
+
+	delete [] copynum;
+	delete [] copyloc2;
+	delete [] copyloc1;
+
 	return 0;  
 }
