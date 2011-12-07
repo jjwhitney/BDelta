@@ -22,6 +22,9 @@ typedef uint16_t Token;
 typedef uint32_t Token;
 #endif
 
+// Enables delta chunk statistics
+// #define DO_STATS_DEBUG
+
 #include <stdio.h>
 #include <stdlib.h> 
 #include "container.h"
@@ -171,7 +174,7 @@ void sortTMatches(DLink<Match> *place, PotentialMatch *matches, unsigned numMatc
 	std::sort(matches, matches + numMatches, DistanceFromP1(lastf1Place));
 }
 
-#ifndef NDEBUG
+#ifdef DO_STATS_DEBUG
 long long stata = 0, statb = 0;
 #endif
 void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsigned end,
@@ -200,7 +203,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 						// Keep the best 16
 						sortTMatches(place, pMatch, pMatchCount);
 						pMatchCount = 16;
-#ifndef NDEBUG
+#ifdef DO_STATS_DEBUG
 						++statb;
 #endif
 					}
@@ -259,7 +262,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 					buf_loc = blocksize;
 					j += blocksize;
 				}
-#ifndef NDEBUG
+#ifdef DO_STATS_DEBUG
 				++stata;
 #endif
 				break;
@@ -415,7 +418,7 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 	delete unused;
 	delete h.htable;
 	delete h.checksums;
-#ifndef NDEBUG
+#ifdef DO_STATS_DEBUG
 	printf("a = %.lli; b = %.lli\n", stata, statb);
 #endif
 	// printf("Found %i matches\n", b->matches.size());
