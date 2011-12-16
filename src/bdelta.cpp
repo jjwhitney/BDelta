@@ -28,8 +28,8 @@ void *f_read(void *f, void *buf, unsigned place, unsigned num) {
 int main(int argc, char **argv) {
 	try {
 		if (argc != 4) {
+			printf("usage: bdelta <oldfile> <newfile> <patchfile>\n");
 			printf("needs two files to compare + output file:\n");
-			printf("delta oldfile newfile patchfile\n");
 			exit(1);
 		}
 		if (!fileExists(argv[1]) || !fileExists(argv[2])) {

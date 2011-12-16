@@ -35,8 +35,8 @@ bool copy_bytes_to_file(FILE *infile, FILE *outfile, unsigned numleft) {
 int main(int argc, char **argv) {
 	try {
 		if (argc != 4) {
+			printf("usage: bpatch <oldfile> <newfile> <patchfile>\n");
 			printf("needs a reference file, file to output, and patchfile:\n");
-			printf("delta oldfile newfile patchfile\n");
 			return 1;
 		}
 
