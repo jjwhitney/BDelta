@@ -257,8 +257,10 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 				if (p2 + num > j) {
 					// Fast foward over matched area.
 					j = p2 + num;
-					inbuf = b->read2(buf1, j, std::min(end - j, blocksize));
-					hash = Hash(inbuf, h->blocksize);
+					if (j < end) {
+						inbuf = b->read2(buf1, j, std::min(end - j, blocksize));
+						hash = Hash(inbuf, h->blocksize);
+					}
 					buf_loc = blocksize;
 					j += blocksize;
 				}
