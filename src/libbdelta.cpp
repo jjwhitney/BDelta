@@ -415,9 +415,9 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 	if (b->data2_size - last >= blocksize) 
 		findMatches(b, &h, last, b->data2_size, b->matches.last);
 	// printf("afterwards: %i, %i, %i\n", b->matches.first->next->obj->p1, b->matches.first->next->obj->p2, b->matches.first->next->obj->num);
-	delete unused;
-	delete h.htable;
-	delete h.checksums;
+	delete [] unused;
+	delete [] h.htable;
+	delete [] h.checksums;
 #ifdef DO_STATS_DEBUG
 	printf("a = %.lli; b = %.lli\n", stata, statb);
 #endif
