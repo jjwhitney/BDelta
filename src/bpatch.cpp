@@ -33,77 +33,83 @@ bool copy_bytes_to_file(FILE *infile, FILE *outfile, unsigned numleft) {
 }
 
 int main(int argc, char **argv) {
-	if (argc != 4) {
-		printf("needs a reference file, file to output, and patchfile:\n");
-		printf("delta oldfile newfile patchfile\n");
-		return 1;
-	}
-
-	if (!fileExists(argv[1]) || !fileExists(argv[3])) {
-		printf("one of the input files does not exist\n");
-		return 1;
-	}
-
-	FILE *patchfile = fopen(argv[3], "rb");
-	char magic[3];
-	fread_fixed(patchfile, magic, 3);
-	if (strncmp(magic, "BDT", 3)) {
-		printf("Given file is not a recognized patchfile\n");
-		return 1;
-	}
-	unsigned short version = read_word(patchfile);
-	if (version != 1) {
-		printf("unsupported patch version\n");
-		return 1;
-	}
-	char intsize;
-	fread_fixed(patchfile, &intsize, 1);
-	if (intsize != 4) {
-		printf("unsupported file pointer size\n");
-		return 1;
-	}
-	unsigned size1 = read_dword(patchfile), 
-		size2 = read_dword(patchfile);
-
-	unsigned nummatches = read_dword(patchfile);
-
-	unsigned * copyloc1 = new unsigned[nummatches + 1];
-	unsigned * copyloc2 = new unsigned[nummatches + 1];
-	unsigned *  copynum = new unsigned[nummatches + 1];
-
-	for (unsigned i = 0; i < nummatches; ++i) {
-		copyloc1[i] = read_dword(patchfile);
-		copyloc2[i] = read_dword(patchfile);
-		copynum[i] = read_dword(patchfile);
-		size2 -= copyloc2[i] + copynum[i];
-	}
-	if (size2) {
-		copyloc1[nummatches] = 0; copynum[nummatches] = 0; 
-		copyloc2[nummatches] = size2;
-		++nummatches;
-	}
-
-	FILE *ref = fopen(argv[1], "rb");
-	FILE *outfile = fopen(argv[2], "wb");
-
-	for (unsigned i = 0; i < nummatches; ++i) {
-		if (!copy_bytes_to_file(patchfile, outfile, copyloc2[i])) {
-			printf("Error.  patchfile is truncated\n");
-			return -1;
+	try {
+		if (argc != 4) {
+			printf("needs a reference file, file to output, and patchfile:\n");
+			printf("delta oldfile newfile patchfile\n");
+			return 1;
 		}
 
-		int copyloc = copyloc1[i];
-		fseek(ref, copyloc, SEEK_CUR);
-
-		if (!copy_bytes_to_file(ref, outfile, copynum[i])) {
-			printf("Error while copying from reference file\n");
-			return -1;
+		if (!fileExists(argv[1]) || !fileExists(argv[3])) {
+			printf("one of the input files does not exist\n");
+			return 1;
 		}
+
+		FILE *patchfile = fopen(argv[3], "rb");
+		char magic[3];
+		fread_fixed(patchfile, magic, 3);
+		if (strncmp(magic, "BDT", 3)) {
+			printf("Given file is not a recognized patchfile\n");
+			return 1;
+		}
+		unsigned short version = read_word(patchfile);
+		if (version != 1) {
+			printf("unsupported patch version\n");
+			return 1;
+		}
+		char intsize;
+		fread_fixed(patchfile, &intsize, 1);
+		if (intsize != 4) {
+			printf("unsupported file pointer size\n");
+			return 1;
+		}
+		unsigned size1 = read_dword(patchfile),
+			size2 = read_dword(patchfile);
+
+		unsigned nummatches = read_dword(patchfile);
+
+		unsigned * copyloc1 = new unsigned[nummatches + 1];
+		unsigned * copyloc2 = new unsigned[nummatches + 1];
+		unsigned *  copynum = new unsigned[nummatches + 1];
+
+		for (unsigned i = 0; i < nummatches; ++i) {
+			copyloc1[i] = read_dword(patchfile);
+			copyloc2[i] = read_dword(patchfile);
+			copynum[i] = read_dword(patchfile);
+			size2 -= copyloc2[i] + copynum[i];
+		}
+		if (size2) {
+			copyloc1[nummatches] = 0; copynum[nummatches] = 0;
+			copyloc2[nummatches] = size2;
+			++nummatches;
+		}
+
+		FILE *ref = fopen(argv[1], "rb");
+		FILE *outfile = fopen(argv[2], "wb");
+
+		for (unsigned i = 0; i < nummatches; ++i) {
+			if (!copy_bytes_to_file(patchfile, outfile, copyloc2[i])) {
+				printf("Error.  patchfile is truncated\n");
+				return -1;
+			}
+
+			int copyloc = copyloc1[i];
+			fseek(ref, copyloc, SEEK_CUR);
+
+			if (!copy_bytes_to_file(ref, outfile, copynum[i])) {
+				printf("Error while copying from reference file\n");
+				return -1;
+			}
+		}
+
+		delete [] copynum;
+		delete [] copyloc2;
+		delete [] copyloc1;
+
+	} catch (const char * desc){
+		fprintf (stderr, "FATAL: %s\n", desc);
+		return -1;
 	}
 
-	delete [] copynum;
-	delete [] copyloc2;
-	delete [] copyloc1;
-
-	return 0;  
+	return 0;
 }
