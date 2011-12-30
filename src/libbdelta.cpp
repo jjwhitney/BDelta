@@ -182,7 +182,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 	const unsigned blocksize = h->blocksize;
 	STACK_ALLOC(buf1, Token, blocksize);
 	STACK_ALLOC(buf2, Token, blocksize);
-	
+
 	const unsigned maxPMatch = 256;
 	PotentialMatch pMatch[maxPMatch];
 	int pMatchCount = 0;
@@ -191,9 +191,8 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 	      *outbuf;
 	Hash hash = Hash(inbuf, blocksize);
 	unsigned buf_loc = blocksize;
-	unsigned j = start + blocksize;
 	Hash::Value lastChecksum = ~hash.getValue();
-	do {
+	for (unsigned j = start + blocksize; j <= end; ++j) {
 		unsigned thisTableIndex = h->tableIndex(hash.getValue());
 		checksum_entry *c = h->htable[thisTableIndex];
 		if (c && hash.getValue() != lastChecksum) {
@@ -208,12 +207,51 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 #endif
 					}
 					pMatch[pMatchCount++] = PotentialMatch(c->loc, j - blocksize, c->cksum);
-					processMatchesPos = std::min(j + blocksize, processMatchesPos);
+					processMatchesPos = std::min(j + blocksize / 2, processMatchesPos);
 				}
 				++c;
 			} while (h->tableIndex(c->cksum) == thisTableIndex);
 		}
 		lastChecksum = hash.getValue();
+
+		if (j >= processMatchesPos) {
+			processMatchesPos = end;
+			sortTMatches(place, pMatch, pMatchCount);
+			for (int i = 0; i < pMatchCount; ++i) {
+				unsigned p1 = pMatch[i].p1, p2 = pMatch[i].p2;
+				unsigned fnum = match_forward(b, p1, p2);
+				if (fnum >= blocksize) {
+	#ifdef THOROUGH
+					for (unsigned betterP1 = p1 - (p1 ? 1 : 0); betterP1; --betterP1) {
+						unsigned nfnum = match_forward(b, betterP1, p2);
+						if (nfnum > fnum) {
+							fnum = nfnum;
+							p1 = betterP1;
+						} else
+							break;
+					}
+	#endif
+					unsigned bnum = match_backward(b, p1, p2, blocksize);
+					unsigned num = fnum + bnum;
+
+					p1 -= bnum; p2 -= bnum;
+					addMatch(b, p1, p2, num, place);
+					if (p2 + num > j) {
+						// Fast foward over matched area.
+						j = p2 + num - blocksize;
+						inbuf = b->read2(buf1, j, blocksize);
+						hash = Hash(inbuf, blocksize);
+						buf_loc = blocksize;
+						j += blocksize;
+					}
+	#ifdef DO_STATS_DEBUG
+					++stata;
+	#endif
+					break;
+				}
+			}
+			pMatchCount = 0;
+		}
 
 		if (buf_loc == blocksize) {
 			buf_loc = 0;
@@ -221,57 +259,9 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 			inbuf = b->read2(outbuf == buf1 ? buf2 : buf1, j, std::min(end - j, blocksize));
 		}
 
-		const Token
-			oldToken = outbuf[buf_loc],
-			newToken = inbuf[buf_loc];
+		hash.advance(outbuf[buf_loc], inbuf[buf_loc]);
 		++buf_loc;
-		hash.advance(oldToken, newToken);
-		++j;
-
-
-
-		if (j < processMatchesPos)
-			continue;
-		
-		processMatchesPos = end;
-		sortTMatches(place, pMatch, pMatchCount);
-		for (int i = 0; i < pMatchCount; ++i) {
-			unsigned p1 = pMatch[i].p1, p2 = pMatch[i].p2;
-			unsigned fnum = match_forward(b, p1, p2);
-			if (fnum >= blocksize) {
-#ifdef THOROUGH
-				for (unsigned betterP1 = p1 - 1; betterP1; --betterP1) {
-					unsigned nfnum = match_forward(b, betterP1, p2);
-					if (nfnum > fnum) {
-						fnum = nfnum;
-						p1 = betterP1;
-					} else
-						break;
-				}
-#endif
-				unsigned bnum = match_backward(b, p1, p2, blocksize);
-				unsigned num = fnum + bnum;
-
-				p1 -= bnum; p2 -= bnum;
-				addMatch(b, p1, p2, num, place);
-				if (p2 + num > j) {
-					// Fast foward over matched area.
-					j = p2 + num;
-					if (j < end) {
-						inbuf = b->read2(buf1, j, std::min(end - j, blocksize));
-						hash = Hash(inbuf, h->blocksize);
-					}
-					buf_loc = blocksize;
-					j += blocksize;
-				}
-#ifdef DO_STATS_DEBUG
-				++stata;
-#endif
-				break;
-			}
-		}
-		pMatchCount = 0;
-	} while (j < end);
+	}
 }
 
 bool comparep1(Range r1, Range r2) {
