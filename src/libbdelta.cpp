@@ -369,18 +369,15 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 		std::sort(h.checksums, h.checksums + h.numchecksums, Checksums_Compare(h));
 #ifndef THOROUGH
 		const unsigned maxIdenticalChecksums = 256;
-		int j = 0;
-		for (unsigned i = 0; i < h.numchecksums;) {
-			if (i + maxIdenticalChecksums < h.numchecksums &&
-					h.checksums[i].cksum == h.checksums[i + maxIdenticalChecksums].cksum) {
-				i += maxIdenticalChecksums;
-				Hash::Value cksum = h.checksums[i].cksum;
-				while (i < h.numchecksums && h.checksums[i].cksum == cksum) ++i;
-			} else {
-				h.checksums[j++] = h.checksums[i++];
-			}
+		unsigned writeLoc = 0, readLoc, testAhead;
+		for (readLoc = 0; readLoc < h.numchecksums; readLoc = testAhead) {
+			for (testAhead = readLoc; testAhead < h.numchecksums && h.checksums[readLoc].cksum == h.checksums[testAhead].cksum; ++testAhead)
+				;
+			if (testAhead - readLoc <= maxIdenticalChecksums)
+				for (unsigned i = readLoc; i < testAhead; ++i)
+					h.checksums[writeLoc++] = h.checksums[i];
 		}
-		h.numchecksums = j;
+		h.numchecksums = writeLoc;
 #endif
 	}
 
