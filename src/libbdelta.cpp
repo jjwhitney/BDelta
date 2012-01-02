@@ -30,6 +30,7 @@ typedef uint32_t Token;
 #include "container.h"
 #include "bdelta.h"
 #include "checksum.h"
+#include <list>
 #include <limits>
 #include <algorithm>
 const bool verbose = false;
@@ -169,9 +170,9 @@ struct DistanceFromP1 {
 	}
 };
 
-void sortTMatches(DLink<Match> *place, PotentialMatch *matches, unsigned numMatches) {
+void sortTMatches(DLink<Match> *place, std::list<PotentialMatch> &matches) {
 	unsigned lastf1Place = place ? place->obj->p1 + place->obj->num : 0;
-	std::sort(matches, matches + numMatches, DistanceFromP1(lastf1Place));
+	matches.sort(DistanceFromP1(lastf1Place));
 }
 
 #ifdef DO_STATS_DEBUG
@@ -184,8 +185,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 	STACK_ALLOC(buf2, Token, blocksize);
 
 	const unsigned maxPMatch = 256;
-	PotentialMatch pMatch[maxPMatch];
-	int pMatchCount = 0;
+	std::list<PotentialMatch> pMatch;
 	unsigned processMatchesPos = end;
 	Token *inbuf = b->read2(buf1, start, blocksize),
 	      *outbuf;
@@ -198,15 +198,15 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 		if (c && hash.getValue() != lastChecksum) {
 			do {
 				if (c->cksum == hash.getValue()) {
-					if (pMatchCount >= maxPMatch) {
+					if (pMatch.size() >= maxPMatch) {
 						// Keep the best 16
-						sortTMatches(place, pMatch, pMatchCount);
-						pMatchCount = 16;
+						sortTMatches(place, pMatch);
+						pMatch.resize(16);
 #ifdef DO_STATS_DEBUG
 						++statb;
 #endif
 					}
-					pMatch[pMatchCount++] = PotentialMatch(c->loc, j - blocksize, c->cksum);
+					pMatch.push_back(PotentialMatch(c->loc, j - blocksize, c->cksum));
 					processMatchesPos = std::min(j + blocksize / 2, processMatchesPos);
 				}
 				++c;
@@ -216,9 +216,9 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 
 		if (j >= processMatchesPos) {
 			processMatchesPos = end;
-			sortTMatches(place, pMatch, pMatchCount);
-			for (int i = 0; i < pMatchCount; ++i) {
-				unsigned p1 = pMatch[i].p1, p2 = pMatch[i].p2;
+			sortTMatches(place, pMatch);
+			for (std::list<PotentialMatch>::iterator i = pMatch.begin(); i != pMatch.end(); ++i) {
+				unsigned p1 = i->p1, p2 = i->p2;
 				unsigned fnum = match_forward(b, p1, p2);
 				if (fnum >= blocksize) {
 	#ifdef THOROUGH
@@ -254,7 +254,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 					break;
 				}
 			}
-			pMatchCount = 0;
+			pMatch.clear();
 		}
 
 		if (buf_loc == blocksize) {
