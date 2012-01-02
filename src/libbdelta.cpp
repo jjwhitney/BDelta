@@ -26,8 +26,7 @@ typedef uint32_t Token;
 // #define DO_STATS_DEBUG
 
 #include <stdio.h>
-#include <stdlib.h> 
-#include "container.h"
+#include <stdlib.h>
 #include "bdelta.h"
 #include "checksum.h"
 #include <list>
@@ -58,8 +57,8 @@ struct BDelta_Instance {
 	bdelta_readCallback cb;
 	void *handle1, *handle2;
 	unsigned data1_size, data2_size;
-	DList<Match> matches;
-	DLink<Match> *accessplace;
+	std::list<Match> matches;
+	std::list<Match>::iterator accessplace;
 	int access_int;
 	int errorcode;
 
@@ -128,25 +127,21 @@ unsigned match_backward(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned b
 	return num;
 }
 
+// Iterator helper function
+template <class T>
+inline T prior(T i) {return --i;}
 
-void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, DLink<Match> *&place) {
-	while (place && place->obj->p2 >= p2) {
-		DLink<Match> *toerase = place;
-		place = place->prev;
-		b->matches.erase(toerase);
-	}
+void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, std::list<Match>::iterator place) {
+	while (place != b->matches.begin() && prior(place)->p2 >= p2)
+		b->matches.erase(prior(place));
 #ifndef ALLOW_OVERLAP
-	if (place && place->obj->p2 + place->obj->num > p2)
-		place->obj->num = p2 - place->obj->p2;
-#endif
-	DLink<Match> *next = place ? place->next : b->matches.first;
-	// if (next && p2 >= next->obj->p2) {printf("Bad thing\n");}// goto outofhere;
-#ifndef ALLOW_OVERLAP
-	if (next && p2 + num > next->obj->p2)
-		num = next->obj->p2 - p2;
+	if (place != b->matches.begin() && prior(place)->p2 + prior(place)->num > p2)
+		prior(place)->num = p2 - prior(place)->p2;
+	if (place != b->matches.end() && p2 + num > place->p2)
+		num = place->p2 - p2;
 #endif
 	// printf("%i, %i, %i, %x, %x\n", p1, p2, num, place, next);
-	place = b->matches.insert(new Match(p1, p2, num), place, next);
+	b->matches.insert(place, Match(p1, p2, num));
 }
 
 struct PotentialMatch {
@@ -170,8 +165,8 @@ struct DistanceFromP1 {
 	}
 };
 
-void sortTMatches(DLink<Match> *place, std::list<PotentialMatch> &matches) {
-	unsigned lastf1Place = place ? place->obj->p1 + place->obj->num : 0;
+void sortTMatches(BDelta_Instance *b, std::list<Match>::iterator place, std::list<PotentialMatch> &matches) {
+	unsigned lastf1Place = place != b->matches.begin() ? prior(place)->p1 + prior(place)->num : 0;
 	matches.sort(DistanceFromP1(lastf1Place));
 }
 
@@ -179,7 +174,7 @@ void sortTMatches(DLink<Match> *place, std::list<PotentialMatch> &matches) {
 long long stata = 0, statb = 0;
 #endif
 void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsigned end,
-		DLink<Match> *place) {
+		std::list<Match>::iterator place) {
 	const unsigned blocksize = h->blocksize;
 	STACK_ALLOC(buf1, Token, blocksize);
 	STACK_ALLOC(buf2, Token, blocksize);
@@ -200,7 +195,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 				if (c->cksum == hash.getValue()) {
 					if (pMatch.size() >= maxPMatch) {
 						// Keep the best 16
-						sortTMatches(place, pMatch);
+						sortTMatches(b, place, pMatch);
 						pMatch.resize(16);
 #ifdef DO_STATS_DEBUG
 						++statb;
@@ -216,7 +211,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 
 		if (j >= processMatchesPos) {
 			processMatchesPos = end;
-			sortTMatches(place, pMatch);
+			sortTMatches(b, place, pMatch);
 			for (std::list<PotentialMatch>::iterator i = pMatch.begin(); i != pMatch.end(); ++i) {
 				unsigned p1 = i->p1, p2 = i->p2;
 				unsigned fnum = match_forward(b, p1, p2);
@@ -300,10 +295,7 @@ void *bdelta_init_alg(unsigned data1_size, unsigned data2_size,
 
 void bdelta_done_alg(void *instance) {
 	BDelta_Instance *b = (BDelta_Instance*)instance;
-	while (!b->matches.empty()) {
-		delete b->matches.first->obj;
-		b->matches.erase(b->matches.first);
-	}
+	b->matches.clear();
 	delete b;
 }
 
@@ -317,8 +309,8 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 	Range *unused = new Range[b->matches.size() + 1];
 	if (!unused) {b->errorcode = BDELTA_MEM_ERROR; return 0;}
 	unsigned numunused = 0;
-	for (DLink<Match> *l = b->matches.first; l; l = l->next)
-		unused[numunused++] = Range(l->obj->p1, l->obj->num);
+	for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l)
+		unused[numunused++] = Range(l->p1, l->num);
 
 	std::sort(unused, unused + numunused, comparep1);
 
@@ -403,13 +395,13 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 	if (verbose) printf("compare files\n");
 
 	last = 0;
-	for (DLink<Match> *l = b->matches.first; l; l = l->next) {
-		if (l->obj->p2 - last >= blocksize)
-			findMatches(b, &h, last, l->obj->p2, l->prev);
-		last = l->obj->p2 + l->obj->num;
+	for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l) {
+		if (l->p2 - last >= blocksize)
+			findMatches(b, &h, last, l->p2, l);
+		last = l->p2 + l->num;
 	}
 	if (b->data2_size - last >= blocksize) 
-		findMatches(b, &h, last, b->data2_size, b->matches.last);
+		findMatches(b, &h, last, b->data2_size, b->matches.end());
 	// printf("afterwards: %i, %i, %i\n", b->matches.first->next->obj->p1, b->matches.first->next->obj->p2, b->matches.first->next->obj->num);
 	delete [] unused;
 	delete [] h.htable;
@@ -426,19 +418,19 @@ void bdelta_getMatch(void *instance, unsigned matchNum,
 		unsigned *p1, unsigned *p2, unsigned *num) {
 	BDelta_Instance *b = (BDelta_Instance*)instance;
 	int &access_int = b->access_int;
-	DLink<Match> *&accessplace = b->accessplace;
-	if (access_int == -1) {access_int = 0; accessplace = b->matches.first;}
+	std::list<Match>::iterator &accessplace = b->accessplace;
+	if (access_int == -1) {access_int = 0; accessplace = b->matches.begin();}
 	while ((unsigned)access_int < matchNum) {
-		accessplace = accessplace->next;
+		++accessplace;
 		++access_int;
 	}
 	while ((unsigned)access_int > matchNum) {
-		accessplace = accessplace->prev;
+		--accessplace;
 		--access_int;
 	}
-	*p1 = accessplace->obj->p1;
-	*p2 = accessplace->obj->p2;
-	*num = accessplace->obj->num;
+	*p1 = accessplace->p1;
+	*p2 = accessplace->p2;
+	*num = accessplace->num;
 }
 
 int bdelta_getError(void *instance) {
