@@ -233,6 +233,10 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 	#endif
 					unsigned bnum = match_backward(b, p1, p2, blocksize);
 					unsigned num = fnum + bnum;
+#ifndef CARELESSMATCH
+					if (num < blocksize * 2)
+						break; // I'd like to continue here, but first need to reduce pMatchCount.
+#endif
 
 					p1 -= bnum; p2 -= bnum;
 					addMatch(b, p1, p2, num, place);

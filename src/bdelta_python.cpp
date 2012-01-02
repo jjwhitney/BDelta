@@ -39,6 +39,11 @@ PyObject* bdelta_SimpleString(PyObject* self, PyObject* args) {
 
 	if (!PyArg_ParseTuple(args, "u#u#i", &a, &len_a, &b, &len_b, &smallestMatch))
 		return NULL;
+
+	// Find all matches bigger than "smallestMatch" parameter.
+	// We achieve this by using a blocksize of "size / 2" (and leaving CARELESSMATCH undefined).
+	smallestMatch /= 2;
+
 	PyObject *a16 = PyUnicode_EncodeUTF16(a, len_a, NULL, -1);
 	PyObject *b16 = PyUnicode_EncodeUTF16(b, len_b, NULL, -1);
 	

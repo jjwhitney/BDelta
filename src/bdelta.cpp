@@ -43,7 +43,12 @@ int main(int argc, char **argv) {
 
 		void *b = bdelta_init_alg(size, size2, f_read, f1, f2, 1);
 		int nummatches;
-		for (int i = 512; i >= 16; i /= 2)
+#ifdef CARELESSMATCH
+		const int MINSIZE = 16;
+#else
+		const int MINSIZE = 8;
+#endif
+		for (int i = 512; i >= MINSIZE; i /= 2)
 			nummatches = bdelta_pass(b, i);
 
 		unsigned * copyloc1 = new unsigned[nummatches + 1];
