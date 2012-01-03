@@ -299,46 +299,32 @@ void bdelta_done_alg(void *instance) {
 	delete b;
 }
 
-unsigned bdelta_pass(void *instance, unsigned blocksize) {
+struct UnusedRange {
+	unsigned p, num;
+	std::list<Match>::iterator m;
+};
+
+
+bool comparep(UnusedRange r1, UnusedRange r2) {
+	return r1.p < r2.p;
+}
+bool comparemp2(UnusedRange r1, UnusedRange r2) {
+	return r1.m->p2 < r2.m->p2;
+}
+
+unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, UnusedRange *unused, unsigned numunused) {
 	if (verbose) printf("Organizing leftover blocks\n");
 
 	Checksums_Instance h(blocksize);
-	BDelta_Instance *b = (BDelta_Instance*)instance;
 	b->access_int = -1;
-
-	Range *unused = new Range[b->matches.size() + 1];
-	if (!unused) {b->errorcode = BDELTA_MEM_ERROR; return 0;}
-	unsigned numunused = 0;
-	for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l)
-		unused[numunused++] = Range(l->p1, l->num);
-
-	std::sort(unused, unused + numunused, comparep1);
-
-	// Trick loop below into including the free range at the end.
-	unused[numunused++] = Range(b->data1_size, b->data1_size);
-
-	unsigned last = 0;
-	unsigned missing = 0;
-	for (unsigned i = 0; i < numunused; ++i) {
-		unsigned nextstart = unused[i].p + unused[i].num;
-		if (unused[i].p <= last)
-			++missing;
-		else
-			unused[i - missing] = Range(last, unused[i].p - last);
-		last = std::max(last, nextstart);
-	}
-	numunused -= missing;
-
-
 
 	unsigned numblocks = 0;
 	for (unsigned i = 0; i < numunused; ++i) {
 		numblocks += unused[i].num / blocksize;
 	}
 
-	if (verbose) printf("Starting search for matching blocks of size %i\n", blocksize);
 	// numblocks = size / blocksize;
-	if (verbose) printf("found %i blocks\n", numblocks);
+	if (verbose) printf("found %i blocks of size %i\n", numblocks, blocksize);
 	h.htablesize = 1 << 16;
 	while (h.htablesize < numblocks) h.htablesize <<= 1;
 	// h.htablesize <<= 2;
@@ -359,16 +345,16 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 		unsigned first = unused[i].p, last = unused[i].p + unused[i].num;
 		for (unsigned loc = first; loc + blocksize <= last; loc += blocksize) {
 			Token *read = b->read1(buf, loc, blocksize);
-			Hash::Value blocksum = Hash(read, h.blocksize).getValue();
+			Hash::Value blocksum = Hash(read, blocksize).getValue();
 			// Adjacent checksums are never repeated.
-			if (! h.numchecksums || blocksum != h.checksums[h.numchecksums - 1].cksum)
+			//if (! h.numchecksums || blocksum != h.checksums[h.numchecksums - 1].cksum)
 				h.add(checksum_entry(blocksum, loc));
 		}
 	}
 	if (h.numchecksums) {
 		std::sort(h.checksums, h.checksums + h.numchecksums, Checksums_Compare(h));
 #ifndef THOROUGH
-		const unsigned maxIdenticalChecksums = 256;
+		const unsigned maxIdenticalChecksums = 3;
 		unsigned writeLoc = 0, readLoc, testAhead;
 		for (readLoc = 0; readLoc < h.numchecksums; readLoc = testAhead) {
 			for (testAhead = readLoc; testAhead < h.numchecksums && h.checksums[readLoc].cksum == h.checksums[testAhead].cksum; ++testAhead)
@@ -391,25 +377,79 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 //  if (verbose) printf("%i checksums\n", h.numchecksums);
 	if (verbose) printf("compare files\n");
 
-	last = 0;
-	for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l) {
-		if (l->p2 - last >= blocksize)
-			findMatches(b, &h, last, l->p2, l);
-		last = l->p2 + l->num;
+	if (numunused == 1) {
+		std::list<Match>::iterator l = unused[0].m;
+		unsigned placeEnd = l == b->matches.begin() ? 0 : prior(l)->p2 + prior(l)->num,
+				 placeBegin = l == b->matches.end() ? b->data2_size : l->p2;
+		if (placeEnd + blocksize <= placeBegin)
+			findMatches(b, &h, placeEnd, placeBegin, l);
+	} else {
+		unsigned last = 0;
+		for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l) {
+			if (l->p2 - last >= blocksize)
+				findMatches(b, &h, last, l->p2, l);
+			last = l->p2 + l->num;
+		}
+		if (b->data2_size - last >= blocksize)
+			findMatches(b, &h, last, b->data2_size, b->matches.end());
 	}
-	if (b->data2_size - last >= blocksize) 
-		findMatches(b, &h, last, b->data2_size, b->matches.end());
 	// printf("afterwards: %i, %i, %i\n", b->matches.first->next->obj->p1, b->matches.first->next->obj->p2, b->matches.first->next->obj->num);
-	delete [] unused;
 	delete [] h.htable;
 	delete [] h.checksums;
 #ifdef DO_STATS_DEBUG
 	printf("a = %.lli; b = %.lli\n", stata, statb);
 #endif
 	// printf("Found %i matches\n", b->matches.size());
+}
+
+unsigned bdelta_pass_3(void *instance, unsigned blocksize, bool local) {
+	BDelta_Instance *b = (BDelta_Instance*)instance;
+
+	UnusedRange *unused = new UnusedRange[b->matches.size() + 1];
+	if (!unused) {b->errorcode = BDELTA_MEM_ERROR; return 0;}
+	unsigned numunused = 0;
+	for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l)
+		unused[numunused++] = (UnusedRange){l->p1, l->num, l};
+
+	std::sort(unused, unused + numunused, comparep);
+
+	// Trick loop below into including the free range at the end.
+	unused[numunused++] = (UnusedRange){b->data1_size, b->data1_size, b->matches.end()};
+
+	unsigned last = 0;
+	unsigned missing = 0;
+	for (unsigned i = 0; i < numunused; ++i) {
+		unsigned nextstart = unused[i].p + unused[i].num;
+		if (unused[i].p <= last)
+			++missing;
+		else
+			unused[i - missing] = (UnusedRange){last, unused[i].p - last, unused[i].m};
+		last = std::max(last, nextstart);
+	}
+	numunused -= missing;
+
+	if (local) {
+		std::sort(unused, unused + numunused, comparemp2);
+		for (unsigned i = 0; i < numunused; ++i) {
+			if (unused[i].num > blocksize) {
+				//printf("%d, %d\n", unused[i].p, unused[i].num);
+				bdelta_pass_2(b, blocksize, unused + i, 1);
+			}
+		}
+	}
+	else
+		bdelta_pass_2(b, blocksize, unused, numunused);
+	delete [] unused;
 	return b->matches.size();
 }
 
+unsigned bdelta_pass(void *instance, unsigned blocksize) {
+	return bdelta_pass_3(instance, blocksize, false);
+}
+
+unsigned bdelta_pass_local(void *instance, unsigned blocksize) {
+	return bdelta_pass_3(instance, blocksize, true);
+}
 
 void bdelta_getMatch(void *instance, unsigned matchNum, 
 		unsigned *p1, unsigned *p2, unsigned *num) {
