@@ -130,6 +130,8 @@ unsigned match_backward(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned b
 // Iterator helper function
 template <class T>
 inline T prior(T i) {return --i;}
+template <class T>
+inline T next(T i) {return ++i;}
 
 void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, std::list<Match>::iterator place) {
 	while (place != b->matches.begin() && prior(place)->p2 >= p2)
@@ -288,18 +290,22 @@ void bdelta_done_alg(void *instance) {
 
 struct UnusedRange {
 	unsigned p, num;
-	std::list<Match>::iterator m;
+	std::list<Match>::iterator ml, mr;
 };
 
 
 bool comparep(UnusedRange r1, UnusedRange r2) {
 	return r1.p < r2.p;
 }
-bool comparemp2(UnusedRange r1, UnusedRange r2) {
-	return r1.m->p2 < r2.m->p2;
+bool comparemlp2(UnusedRange r1, UnusedRange r2) {
+	return r1.ml->p2 < r2.ml->p2;
+}
+bool comparemrp2(UnusedRange r1, UnusedRange r2) {
+	return r1.mr->p2 < r2.mr->p2;
 }
 
-unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, UnusedRange *unused, unsigned numunused) {
+unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, UnusedRange *unused, unsigned numunused,
+		std::list<Match>::iterator placeBegin, std::list<Match>::iterator placeEnd) {
 	if (verbose) printf("Organizing leftover blocks\n");
 
 	Checksums_Instance h(blocksize);
@@ -364,22 +370,15 @@ unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, UnusedRange *unus
 //  if (verbose) printf("%i checksums\n", h.numchecksums);
 	if (verbose) printf("compare files\n");
 
-	if (numunused == 1) {
-		std::list<Match>::iterator l = unused[0].m;
-		unsigned placeEnd = l == b->matches.begin() ? 0 : prior(l)->p2 + prior(l)->num,
-				 placeBegin = l == b->matches.end() ? b->data2_size : l->p2;
-		if (placeEnd + blocksize <= placeBegin)
-			findMatches(b, &h, placeEnd, placeBegin, l);
-	} else {
-		unsigned last = 0;
-		for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l) {
-			if (l->p2 - last >= blocksize)
-				findMatches(b, &h, last, l->p2, l);
-			last = l->p2 + l->num;
-		}
-		if (b->data2_size - last >= blocksize)
-			findMatches(b, &h, last, b->data2_size, b->matches.end());
+	unsigned last = placeBegin == b->matches.begin() ? 0 : prior(placeBegin)->p2 + prior(placeBegin)->num;
+	for (std::list<Match>::iterator l = placeBegin; l != placeEnd; ++l) {
+		if (l->p2 - last >= blocksize)
+			findMatches(b, &h, last, l->p2, l);
+		last = l->p2 + l->num;
 	}
+	unsigned placeEndPos = placeEnd == b->matches.end() ? b->data2_size : placeEnd->p2;
+	if (b->data2_size - last >= blocksize)
+		findMatches(b, &h, last, placeEndPos, placeEnd);
 	// printf("afterwards: %i, %i, %i\n", b->matches.first->next->obj->p1, b->matches.first->next->obj->p2, b->matches.first->next->obj->num);
 	delete [] h.htable;
 	delete [] h.checksums;
@@ -405,34 +404,49 @@ unsigned bdelta_pass_3(void *instance, unsigned blocksize, bool local) {
 
 	unsigned last = 0;
 	unsigned missing = 0;
+	std::list<Match>::iterator lastnext = b->matches.begin();
 	for (unsigned i = 0; i < numunused; ++i) {
 		unsigned nextstart = unused[i].p + unused[i].num;
-		if (unused[i].p <= last)
+		if (unused[i].p < last + blocksize)
 			++missing;
-		else
-			unused[i - missing] = (UnusedRange){last, unused[i].p - last, unused[i].m};
+		else {
+			std::list<Match>::iterator mr = unused[i].ml;
+			unused[i - missing] = (UnusedRange){last, unused[i].p - last, lastnext, mr};
+			lastnext = next(mr);
+		}
 		last = std::max(last, nextstart);
 	}
 	numunused -= missing;
 
 	if (local) {
-		unsigned k = 0;
-		for (unsigned i = 0; i < numunused; ++i) {
-#define ATSTART (i == 0 && unused[i].m == b->matches.begin())
-#define ATMIDDLE (i != 0 && unused[i].m != b->matches.begin())
-#define BOTHSIDESMATCH (ATSTART || (ATMIDDLE && prior(unused[i].m) == unused[i-1].m))
-			if (unused[i].num > blocksize) // && BOTHSIDESMATCH)
-				unused[k++] = unused[i];
-		}
-		numunused = k;
-		std::sort(unused, unused + numunused, comparemp2);
+//		unsigned k = 0;
+//		for (unsigned i = 0; i < numunused; ++i) {
+//#define ATSTART (i == 0 && unused[i].mr == b->matches.begin())
+//#define ATMIDDLE (i != 0 && unused[i].mr != b->matches.begin())
+//#define BOTHSIDESMATCH (ATSTART || (ATMIDDLE && prior(unused[i].mr) == prior(next(unused[i-1].mr))))
+//			if (unused[i].num >= blocksize) // && BOTHSIDESMATCH)
+//				unused[k++] = unused[i];
+//		}
+//		numunused = k;
+//#define USELEFT 1
+#ifdef USELEFT
+		std::sort(unused, unused + numunused, comparemlp2);
+#else
+		std::sort(unused, unused + numunused, comparemrp2);
+#endif
 		for (unsigned i = 0; i < numunused; ++i) {
 			//printf("%d, %d\n", unused[i].p, unused[i].num);
-			bdelta_pass_2(b, blocksize, unused + i, 1);
+			//if (unused[i].ml == unused[i].mr)
+			//	bdelta_pass_2(b, blocksize, unused + i, 1, unused[i].mr);
+#ifdef USELEFT
+			bdelta_pass_2(b, blocksize, unused + i, 1, unused[i].ml, unused[i].ml);
+#else
+			bdelta_pass_2(b, blocksize, unused + i, 1, unused[i].mr, unused[i].mr);
+#endif
 		}
 	}
 	else
-		bdelta_pass_2(b, blocksize, unused, numunused);
+		bdelta_pass_2(b, blocksize, unused, numunused, b->matches.begin(), b->matches.end());
 	delete [] unused;
 	return b->matches.size();
 }
