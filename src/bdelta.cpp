@@ -56,17 +56,12 @@ int main(int argc, char **argv) {
 		// 141-160  811	821	823	827	829	839	853	857	859	863	877	881	883	887	907	911	919	929	937	941
 		// 161-180  947	953	967	971	977	983	991	997
 
-		bdelta_pass(b, 503);
-		bdelta_pass(b, 311);
-		bdelta_pass(b, 193);
-		bdelta_pass(b, 89);
-		bdelta_pass(b, 37);
-		bdelta_pass(b, 17);
-		bdelta_pass(b, 11);
-		bdelta_pass_local(b, 7);
-		bdelta_pass_local(b, 5);
-		bdelta_pass_local(b, 3);
-		nummatches = bdelta_pass_local(b, 2);
+		int seq[] = {503, 127, 31, 7, 5, 3, -31, 31, 7, 5, 3, -7, 2};
+		for (unsigned i = 0; i < sizeof(seq) / sizeof(seq[0]); ++i)
+			if (seq[i] < 0)
+				nummatches = bdelta_pass(b, -seq[i]);
+			else
+				nummatches = bdelta_pass_local(b, seq[i]);
 
 		unsigned * copyloc1 = new unsigned[nummatches + 1];
 		unsigned * copyloc2 = new unsigned[nummatches + 1];

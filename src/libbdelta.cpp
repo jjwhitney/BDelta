@@ -179,7 +179,6 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 	STACK_ALLOC(buf1, Token, blocksize);
 	STACK_ALLOC(buf2, Token, blocksize);
 
-	const unsigned maxPMatch = 256;
 	std::list<PotentialMatch> pMatch;
 	unsigned processMatchesPos = end;
 	Token *inbuf = b->read2(buf1, start, blocksize),
@@ -193,16 +192,8 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 		if (c && hash.getValue() != lastChecksum) {
 			do {
 				if (c->cksum == hash.getValue()) {
-					if (pMatch.size() >= maxPMatch) {
-						// Keep the best 16
-						sortTMatches(b, place, pMatch);
-						pMatch.resize(16);
-#ifdef DO_STATS_DEBUG
-						++statb;
-#endif
-					}
 					pMatch.push_back(PotentialMatch(c->loc, j - blocksize, c->cksum));
-					processMatchesPos = std::min(j + blocksize / 2, processMatchesPos);
+					processMatchesPos = std::min(j + blocksize - 1, processMatchesPos);
 				}
 				++c;
 			} while (h->tableIndex(c->cksum) == thisTableIndex);
@@ -230,13 +221,13 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 					unsigned num = fnum + bnum;
 #ifndef CARELESSMATCH
 					if (num < blocksize * 2)
-						break; // I'd like to continue here, but first need to reduce pMatchCount.
+						continue;
 #endif
 
 					p1 -= bnum; p2 -= bnum;
 					addMatch(b, p1, p2, num, place);
 					if (p2 + num > j) {
-						// Fast foward over matched area.
+						// Fast forward over matched area.
 						j = p2 + num - blocksize;
 						inbuf = b->read2(buf1, j, blocksize);
 						hash = Hash(inbuf, blocksize);
@@ -261,10 +252,6 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 		hash.advance(outbuf[buf_loc], inbuf[buf_loc]);
 		++buf_loc;
 	}
-}
-
-bool comparep1(Range r1, Range r2) {
-	return r1.p < r2.p;
 }
 
 struct Checksums_Compare {
@@ -354,7 +341,7 @@ unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, UnusedRange *unus
 	if (h.numchecksums) {
 		std::sort(h.checksums, h.checksums + h.numchecksums, Checksums_Compare(h));
 #ifndef THOROUGH
-		const unsigned maxIdenticalChecksums = 3;
+		const unsigned maxIdenticalChecksums = 2;
 		unsigned writeLoc = 0, readLoc, testAhead;
 		for (readLoc = 0; readLoc < h.numchecksums; readLoc = testAhead) {
 			for (testAhead = readLoc; testAhead < h.numchecksums && h.checksums[readLoc].cksum == h.checksums[testAhead].cksum; ++testAhead)
@@ -429,12 +416,19 @@ unsigned bdelta_pass_3(void *instance, unsigned blocksize, bool local) {
 	numunused -= missing;
 
 	if (local) {
+		unsigned k = 0;
+		for (unsigned i = 0; i < numunused; ++i) {
+#define ATSTART (i == 0 && unused[i].m == b->matches.begin())
+#define ATMIDDLE (i != 0 && unused[i].m != b->matches.begin())
+#define BOTHSIDESMATCH (ATSTART || (ATMIDDLE && prior(unused[i].m) == unused[i-1].m))
+			if (unused[i].num > blocksize) // && BOTHSIDESMATCH)
+				unused[k++] = unused[i];
+		}
+		numunused = k;
 		std::sort(unused, unused + numunused, comparemp2);
 		for (unsigned i = 0; i < numunused; ++i) {
-			if (unused[i].num > blocksize) {
-				//printf("%d, %d\n", unused[i].p, unused[i].num);
-				bdelta_pass_2(b, blocksize, unused + i, 1);
-			}
+			//printf("%d, %d\n", unused[i].p, unused[i].num);
+			bdelta_pass_2(b, blocksize, unused + i, 1);
 		}
 	}
 	else
