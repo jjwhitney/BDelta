@@ -311,6 +311,10 @@ bool comparemrp2(UnusedRange r1, UnusedRange r2) {
 	return r1.mr->p2 < r2.mr->p2;
 }
 
+bool compareMatchP2(Match r1, Match r2) {
+	return r1.p2 < r2.p2;
+}
+
 unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, UnusedRange *unused, unsigned numunused,
 		std::list<Match>::iterator placeBegin, std::list<Match>::iterator placeEnd) {
 	if (verbose) printf("Organizing leftover blocks\n");
@@ -395,8 +399,43 @@ unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, UnusedRange *unus
 	// printf("Found %i matches\n", b->matches.size());
 }
 
+void bdelta_switch_inputs(void *instance) {
+	BDelta_Instance *b = (BDelta_Instance*)instance;
+
+	for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l)
+		std::swap(l->p1, l->p2);
+	std::swap(b->data1_size, b->data2_size);
+	std::swap(b->handle1, b->handle2);
+	b->matches.sort(compareMatchP2);
+
+
+	std::list<Match>::iterator place = b->matches.begin();
+	while (place != b->matches.end()) {
+		while (place != b->matches.begin() && place != b->matches.end() && prior(place)->p2 + prior(place)->num >= place->p2 + place->num)
+			place = b->matches.erase(place);
+
+		if (place == b->matches.end())
+			break;
+
+#ifndef ALLOW_OVERLAP
+		if (place != b->matches.begin() && prior(place)->p2 + prior(place)->num > place->p2) {
+			prior(place)->num = place->p2 - prior(place)->p2;
+			if (! prior(place)->num)
+				b->matches.erase(prior(place));
+		}
+#endif
+		++place;
+	}
+}
+
 unsigned bdelta_pass_3(void *instance, unsigned blocksize, bool local) {
 	BDelta_Instance *b = (BDelta_Instance*)instance;
+
+	//bdelta_switch_inputs(b);
+
+	//for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l)
+	//	printf("(%d, %d, %d), ", l->p1, l->p2, l->num);
+	//printf ("\n\n");
 
 	UnusedRange *unused = new UnusedRange[b->matches.size() + 1];
 	if (!unused) {b->errorcode = BDELTA_MEM_ERROR; return 0;}
