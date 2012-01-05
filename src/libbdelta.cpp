@@ -159,17 +159,8 @@ T absoluteDifference(T a, T b) {
 	return std::max(a, b) - std::min(a, b);
 }
 
-struct DistanceFromP1 {
-	unsigned place;
-	DistanceFromP1(unsigned place) {this->place = place;}
-	bool operator() (PotentialMatch m1, PotentialMatch m2) {
-		return absoluteDifference(place, m1.p1) < absoluteDifference(place, m2.p1);
-	}
-};
-
-void sortTMatches(BDelta_Instance *b, std::list<Match>::iterator place, std::list<PotentialMatch> &matches) {
-	unsigned lastf1Place = place != b->matches.begin() ? prior(place)->p1 + prior(place)->num : 0;
-	matches.sort(DistanceFromP1(lastf1Place));
+unsigned lastP1(BDelta_Instance *b, std::list<Match>::iterator place) {
+	return place != b->matches.begin() ? prior(place)->p1 + prior(place)->num : 0;
 }
 
 #ifdef DO_STATS_DEBUG
@@ -204,7 +195,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 
 		if (j >= processMatchesPos) {
 			processMatchesPos = end;
-			sortTMatches(b, place, pMatch);
+			unsigned best1, best2, bestnum = 0;
 			for (std::list<PotentialMatch>::iterator i = pMatch.begin(); i != pMatch.end(); ++i) {
 				unsigned p1 = i->p1, p2 = i->p2;
 				unsigned fnum = match_forward(b, p1, p2);
@@ -227,21 +218,28 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 #endif
 
 					p1 -= bnum; p2 -= bnum;
-					addMatch(b, p1, p2, num, place);
-					if (p2 + num > j) {
-						// Fast forward over matched area.
-						j = p2 + num - blocksize;
-						inbuf = b->read2(buf1, j, blocksize);
-						hash = Hash(inbuf, blocksize);
-						buf_loc = blocksize;
-						j += blocksize;
+
+					unsigned lP1 = lastP1(b, place);
+					// TODO: Also consider placement
+					if (! bestnum || absoluteDifference(lP1, p1) < absoluteDifference(lP1, best1)) {
+						best1 = p1;
+						best2 = p2;
+						bestnum = num;
 					}
-	#ifdef DO_STATS_DEBUG
-					++stata;
-	#endif
-					break;
 				}
 			}
+			if (bestnum) {
+				addMatch(b, best1, best2, bestnum, place);
+				if (best2 + bestnum > j) {
+					// Fast forward over matched area.
+					j = best2 + bestnum - blocksize;
+					inbuf = b->read2(buf1, j, blocksize);
+					hash = Hash(inbuf, blocksize);
+					buf_loc = blocksize;
+					j += blocksize;
+				}
+			}
+
 			pMatch.clear();
 		}
 
