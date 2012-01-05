@@ -220,8 +220,10 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 					p1 -= bnum; p2 -= bnum;
 
 					unsigned lP1 = lastP1(b, place);
-					// TODO: Also consider placement
-					if (! bestnum || absoluteDifference(lP1, p1) < absoluteDifference(lP1, best1)) {
+					// Weigh value of match size against the distance.
+					double oldValue = double(bestnum) / (absoluteDifference(lP1, best1) + blocksize * 2),
+						   newValue = double(num) / (absoluteDifference(lP1, p1) + blocksize * 2);
+					if (! bestnum || newValue > oldValue) {
 						best1 = p1;
 						best2 = p2;
 						bestnum = num;
