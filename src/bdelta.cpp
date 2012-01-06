@@ -59,9 +59,9 @@ int main(int argc, char **argv) {
 		int seq[] = {503, 127, 31, 7, 5, 3, -31, 31, 7, 5, 3, -7, 2};
 		for (unsigned i = 0; i < sizeof(seq) / sizeof(seq[0]); ++i) {
 			if (seq[i] < 0)
-				bdelta_pass(b, -seq[i]);
+				bdelta_pass(b, -seq[i], -seq[i] * 2, false);
 			else
-				bdelta_pass_local(b, seq[i]);
+				bdelta_pass(b, seq[i], seq[i] * 2, true);
 
 			bdelta_swap_inputs(b);
 			bdelta_clean_matches(b);

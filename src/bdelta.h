@@ -27,9 +27,7 @@ void *bdelta_init_alg(unsigned data1_size, unsigned data2_size,
 		unsigned tokenSize);
 void  bdelta_done_alg(void *instance);
 
-void bdelta_pass(void *instance, unsigned blocksize);
-
-void bdelta_pass_local(void *instance, unsigned blocksize);
+void bdelta_pass(void *instance, unsigned blockSize, unsigned minMatchSize, bool local);
 
 void bdelta_swap_inputs(void *instance);
 void bdelta_clean_matches(void *instance);

@@ -166,8 +166,7 @@ unsigned lastP1(BDelta_Instance *b, std::list<Match>::iterator place) {
 #ifdef DO_STATS_DEBUG
 long long stata = 0, statb = 0;
 #endif
-void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsigned end,
-		std::list<Match>::iterator place) {
+void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSize, unsigned start, unsigned end, std::list<Match>::iterator place) {
 	const unsigned blocksize = h->blocksize;
 	STACK_ALLOC(buf1, Token, blocksize);
 	STACK_ALLOC(buf2, Token, blocksize);
@@ -213,7 +212,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned start, unsi
 					unsigned bnum = match_backward(b, p1, p2, blocksize);
 					unsigned num = fnum + bnum;
 #ifndef CARELESSMATCH
-					if (num < blocksize * 2)
+					if (num < minMatchSize)
 						continue;
 #endif
 
@@ -304,9 +303,6 @@ struct UnusedRange {
 bool comparep(UnusedRange r1, UnusedRange r2) {
 	return r1.p < r2.p;
 }
-bool comparemlp2(UnusedRange r1, UnusedRange r2) {
-	return r1.ml->p2 < r2.ml->p2;
-}
 bool comparemrp2(UnusedRange r1, UnusedRange r2) {
 	return r1.mr->p2 < r2.mr->p2;
 }
@@ -315,8 +311,7 @@ bool compareMatchP2(Match r1, Match r2) {
 	return r1.p2 < r2.p2;
 }
 
-unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, UnusedRange *unused, unsigned numunused,
-		std::list<Match>::iterator placeBegin, std::list<Match>::iterator placeEnd) {
+unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, UnusedRange *unused, unsigned numunused, UnusedRange *unused2, unsigned numunused2) {
 	if (verbose) printf("Organizing leftover blocks\n");
 
 	Checksums_Instance h(blocksize);
@@ -381,15 +376,10 @@ unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, UnusedRange *unus
 //  if (verbose) printf("%i checksums\n", h.numchecksums);
 	if (verbose) printf("compare files\n");
 
-	unsigned last = placeBegin == b->matches.begin() ? 0 : prior(placeBegin)->p2 + prior(placeBegin)->num;
-	for (std::list<Match>::iterator l = placeBegin; l != placeEnd; ++l) {
-		if (l->p2 - last >= blocksize)
-			findMatches(b, &h, last, l->p2, l);
-		last = l->p2 + l->num;
-	}
-	unsigned placeEndPos = placeEnd == b->matches.end() ? b->data2_size : placeEnd->p2;
-	if (b->data2_size - last >= blocksize)
-		findMatches(b, &h, last, placeEndPos, placeEnd);
+	for (unsigned i = 0; i < numunused2; ++i)
+		if (unused2[i].num >= blocksize)
+			findMatches(b, &h, minMatchSize, unused2[i].p, unused2[i].p + unused2[i].num, unused2[i].mr);
+
 	// printf("afterwards: %i, %i, %i\n", b->matches.first->next->obj->p1, b->matches.first->next->obj->p2, b->matches.first->next->obj->num);
 	delete [] h.htable;
 	delete [] h.checksums;
@@ -429,82 +419,58 @@ void bdelta_clean_matches(void *instance) {
 #endif
 		++place;
 	}
-}
-
-void bdelta_pass_3(void *instance, unsigned blocksize, bool local) {
-	BDelta_Instance *b = (BDelta_Instance*)instance;
-
-	//bdelta_switch_inputs(b);
-
 	//for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l)
 	//	printf("(%d, %d, %d), ", l->p1, l->p2, l->num);
 	//printf ("\n\n");
+}
 
-	UnusedRange *unused = new UnusedRange[b->matches.size() + 1];
-	if (!unused) {b->errorcode = BDELTA_MEM_ERROR; return;}
-	unsigned numunused = 0;
-	for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l)
-		unused[numunused++] = (UnusedRange){l->p1, l->num, l};
-
-	std::sort(unused, unused + numunused, comparep);
+void get_unused_blocks(unsigned endPos, std::list<Match>::iterator endIt, unsigned minSize, UnusedRange *unused, unsigned *numunusedptr) {
+	unsigned &numunused = *numunusedptr;
 
 	// Trick loop below into including the free range at the end.
-	unused[numunused++] = (UnusedRange){b->data1_size, b->data1_size, b->matches.end()};
+	unused[numunused++] = (UnusedRange){endPos, endPos, endIt};
 
 	unsigned last = 0;
-	unsigned missing = 0;
-	std::list<Match>::iterator lastnext = b->matches.begin();
+	std::list<Match>::iterator lastnext = unused[0].ml;
 	for (unsigned i = 0; i < numunused; ++i) {
 		unsigned nextstart = unused[i].p + unused[i].num;
-		if (unused[i].p < last + blocksize)
-			++missing;
-		else {
-			std::list<Match>::iterator mr = unused[i].ml;
-			unused[i - missing] = (UnusedRange){last, unused[i].p - last, lastnext, mr};
-			lastnext = next(mr);
-		}
+
+		std::list<Match>::iterator mr = unused[i].ml;
+		unused[i] = (UnusedRange){last, unused[i].p < last ? 0 : unused[i].p - last, lastnext, mr};
+		lastnext = next(mr);
+
 		last = std::max(last, nextstart);
 	}
-	numunused -= missing;
+}
+
+void bdelta_pass(void *instance, unsigned blocksize, unsigned minMatchSize, bool local) {
+	BDelta_Instance *b = (BDelta_Instance*)instance;
+
+	UnusedRange *unused = new UnusedRange[b->matches.size() + 1],
+			    *unused2 = new UnusedRange[b->matches.size() + 1];
+	unsigned numunused = 0, numunused2 = 0;
+	for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l) {
+		unused[numunused++] = (UnusedRange){l->p1, l->num, l};
+		unused2[numunused2++] = (UnusedRange){l->p2, l->num, l};
+	}
+
+	std::sort(unused, unused + numunused, comparep);
+	std::sort(unused2, unused2 + numunused2, comparep);
+
+	get_unused_blocks(b->data1_size, b->matches.end(), blocksize, unused, &numunused);
+
+	get_unused_blocks(b->data2_size, b->matches.end(), blocksize, unused2, &numunused2);
+	std::sort(unused2, unused2 + numunused2, comparemrp2);
 
 	if (local) {
-//		unsigned k = 0;
-//		for (unsigned i = 0; i < numunused; ++i) {
-//#define ATSTART (i == 0 && unused[i].mr == b->matches.begin())
-//#define ATMIDDLE (i != 0 && unused[i].mr != b->matches.begin())
-//#define BOTHSIDESMATCH (ATSTART || (ATMIDDLE && prior(unused[i].mr) == prior(next(unused[i-1].mr))))
-//			if (unused[i].num >= blocksize) // && BOTHSIDESMATCH)
-//				unused[k++] = unused[i];
-//		}
-//		numunused = k;
-//#define USELEFT 1
-#ifdef USELEFT
-		std::sort(unused, unused + numunused, comparemlp2);
-#else
 		std::sort(unused, unused + numunused, comparemrp2);
-#endif
-		for (unsigned i = 0; i < numunused; ++i) {
-			//printf("%d, %d\n", unused[i].p, unused[i].num);
-			//if (unused[i].ml == unused[i].mr)
-			//	bdelta_pass_2(b, blocksize, unused + i, 1, unused[i].mr);
-#ifdef USELEFT
-			bdelta_pass_2(b, blocksize, unused + i, 1, unused[i].ml, unused[i].ml);
-#else
-			bdelta_pass_2(b, blocksize, unused + i, 1, unused[i].mr, unused[i].mr);
-#endif
-		}
+		for (unsigned i = 0; i < numunused; ++i)
+			bdelta_pass_2(b, blocksize, minMatchSize, unused + i, 1, unused2 + i, 1);
 	}
 	else
-		bdelta_pass_2(b, blocksize, unused, numunused, b->matches.begin(), b->matches.end());
+		bdelta_pass_2(b, blocksize, minMatchSize, unused, numunused, unused2, numunused2);
 	delete [] unused;
-}
-
-void bdelta_pass(void *instance, unsigned blocksize) {
-	bdelta_pass_3(instance, blocksize, false);
-}
-
-void bdelta_pass_local(void *instance, unsigned blocksize) {
-	bdelta_pass_3(instance, blocksize, true);
+	delete [] unused2;
 }
 
 unsigned bdelta_nummatches(void *instance) {
