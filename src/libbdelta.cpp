@@ -22,9 +22,6 @@ typedef uint16_t Token;
 typedef uint32_t Token;
 #endif
 
-// Enables delta chunk statistics
-// #define DO_STATS_DEBUG
-
 #include <stdio.h>
 #include <stdlib.h>
 #include "bdelta.h"
@@ -163,9 +160,6 @@ unsigned lastP1(BDelta_Instance *b, std::list<Match>::iterator place) {
 	return place != b->matches.begin() ? prior(place)->p1 + prior(place)->num : 0;
 }
 
-#ifdef DO_STATS_DEBUG
-long long stata = 0, statb = 0;
-#endif
 void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSize, unsigned start, unsigned end, std::list<Match>::iterator place) {
 	const unsigned blocksize = h->blocksize;
 	STACK_ALLOC(buf1, Token, blocksize);
@@ -382,9 +376,6 @@ unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatch
 	// printf("afterwards: %i, %i, %i\n", b->matches.first->next->obj->p1, b->matches.first->next->obj->p2, b->matches.first->next->obj->num);
 	delete [] h.htable;
 	delete [] h.checksums;
-#ifdef DO_STATS_DEBUG
-	printf("a = %.lli; b = %.lli\n", stata, statb);
-#endif
 	// printf("Found %i matches\n", b->matches.size());
 }
 
