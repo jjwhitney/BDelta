@@ -399,24 +399,23 @@ void bdelta_swap_inputs(void *instance) {
 	b->matches.sort(compareMatchP2);
 }
 
-void bdelta_clean_matches(void *instance) {
+void bdelta_clean_matches(void *instance, bool removeOverlap) {
 	BDelta_Instance *b = (BDelta_Instance*)instance;
 
 	std::list<Match>::iterator place = b->matches.begin();
-	while (place != b->matches.end()) {
+	while (true) {
 		while (place != b->matches.begin() && place != b->matches.end() && prior(place)->p2 + prior(place)->num >= place->p2 + place->num)
 			place = b->matches.erase(place);
 
 		if (place == b->matches.end())
 			break;
 
-#ifndef ALLOW_OVERLAP
-		if (place != b->matches.begin() && prior(place)->p2 + prior(place)->num > place->p2) {
-			prior(place)->num = place->p2 - prior(place)->p2;
-			if (! prior(place)->num)
-				b->matches.erase(prior(place));
-		}
-#endif
+		if (removeOverlap)
+			if (place != b->matches.begin() && prior(place)->p2 + prior(place)->num > place->p2) {
+				prior(place)->num = place->p2 - prior(place)->p2;
+				if (! prior(place)->num)
+					b->matches.erase(prior(place));
+			}
 		++place;
 	}
 	//for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l)

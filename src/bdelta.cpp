@@ -64,11 +64,11 @@ int main(int argc, char **argv) {
 				bdelta_pass(b, seq[i], seq[i] * 2, true);
 
 			bdelta_swap_inputs(b);
-			bdelta_clean_matches(b);
+			bdelta_clean_matches(b, true);
 		}
 
 		bdelta_swap_inputs(b);
-		bdelta_clean_matches(b);
+		bdelta_clean_matches(b, true);
 
 		nummatches = bdelta_nummatches(b);
 

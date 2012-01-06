@@ -30,7 +30,7 @@ void  bdelta_done_alg(void *instance);
 void bdelta_pass(void *instance, unsigned blockSize, unsigned minMatchSize, bool local);
 
 void bdelta_swap_inputs(void *instance);
-void bdelta_clean_matches(void *instance);
+void bdelta_clean_matches(void *instance, bool removeOverlap);
 
 unsigned bdelta_nummatches(void *instance);
 
