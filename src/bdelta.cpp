@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
 		FILE *f1 = fopen(argv[1], "rb"),
 		     *f2 = fopen(argv[2], "rb");
 
-		void *b = bdelta_init_alg(size, size2, f_read, f1, f2, 1);
+		BDelta_Instance *b = bdelta_init_alg(size, size2, f_read, f1, f2, 1);
 		int nummatches;
 
 		// List of primes for reference. Taken from Wikipedia.

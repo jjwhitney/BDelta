@@ -270,7 +270,7 @@ struct Checksums_Compare {
 	}
 };
 
-void *bdelta_init_alg(unsigned data1_size, unsigned data2_size, 
+BDelta_Instance *bdelta_init_alg(unsigned data1_size, unsigned data2_size,
 		bdelta_readCallback cb, void *handle1, void *handle2,
 		unsigned tokenSize) {
 	if (tokenSize != sizeof(Token)) {
@@ -288,8 +288,7 @@ void *bdelta_init_alg(unsigned data1_size, unsigned data2_size,
 	return b;
 }
 
-void bdelta_done_alg(void *instance) {
-	BDelta_Instance *b = (BDelta_Instance*)instance;
+void bdelta_done_alg(BDelta_Instance *b) {
 	b->matches.clear();
 	delete b;
 }
@@ -389,9 +388,7 @@ unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatch
 	// printf("Found %i matches\n", b->matches.size());
 }
 
-void bdelta_swap_inputs(void *instance) {
-	BDelta_Instance *b = (BDelta_Instance*)instance;
-
+void bdelta_swap_inputs(BDelta_Instance *b) {
 	for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l)
 		std::swap(l->p1, l->p2);
 	std::swap(b->data1_size, b->data2_size);
@@ -399,9 +396,7 @@ void bdelta_swap_inputs(void *instance) {
 	b->matches.sort(compareMatchP2);
 }
 
-void bdelta_clean_matches(void *instance, bool removeOverlap) {
-	BDelta_Instance *b = (BDelta_Instance*)instance;
-
+void bdelta_clean_matches(BDelta_Instance *b, bool removeOverlap) {
 	std::list<Match>::iterator place = b->matches.begin();
 	while (true) {
 		while (place != b->matches.begin() && place != b->matches.end() && prior(place)->p2 + prior(place)->num >= place->p2 + place->num)
@@ -442,9 +437,7 @@ void get_unused_blocks(unsigned endPos, std::list<Match>::iterator endIt, unsign
 	}
 }
 
-void bdelta_pass(void *instance, unsigned blocksize, unsigned minMatchSize, bool local) {
-	BDelta_Instance *b = (BDelta_Instance*)instance;
-
+void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, bool local) {
 	UnusedRange *unused = new UnusedRange[b->matches.size() + 1],
 			    *unused2 = new UnusedRange[b->matches.size() + 1];
 	unsigned numunused = 0, numunused2 = 0;
@@ -472,14 +465,12 @@ void bdelta_pass(void *instance, unsigned blocksize, unsigned minMatchSize, bool
 	delete [] unused2;
 }
 
-unsigned bdelta_nummatches(void *instance) {
-	BDelta_Instance *b = (BDelta_Instance*)instance;
+unsigned bdelta_nummatches(BDelta_Instance *b) {
 	return b->matches.size();
 }
 
-void bdelta_getMatch(void *instance, unsigned matchNum, 
+void bdelta_getMatch(BDelta_Instance *b, unsigned matchNum,
 		unsigned *p1, unsigned *p2, unsigned *num) {
-	BDelta_Instance *b = (BDelta_Instance*)instance;
 	int &access_int = b->access_int;
 	std::list<Match>::iterator &accessplace = b->accessplace;
 	if (access_int == -1) {access_int = 0; accessplace = b->matches.begin();}
@@ -496,6 +487,6 @@ void bdelta_getMatch(void *instance, unsigned matchNum,
 	*num = accessplace->num;
 }
 
-int bdelta_getError(void *instance) {
-	return ((BDelta_Instance*)instance)->errorcode;
+int bdelta_getError(BDelta_Instance *instance) {
+	return instance->errorcode;
 }
