@@ -40,6 +40,7 @@ void bdelta_getMatch(BDelta_Instance *b, unsigned matchNum,
 	unsigned *p1, unsigned *p2, unsigned *num);
 
 int bdelta_getError(BDelta_Instance *b);
+void bdelta_showMatches(BDelta_Instance *b);
 
 enum BDELTA_RESULT {
 	BDELTA_OK         =  0,
