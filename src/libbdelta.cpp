@@ -23,7 +23,6 @@ typedef uint32_t Token;
 #endif
 
 #include <stdio.h>
-#include <stdlib.h>
 #include "bdelta.h"
 #include "checksum.h"
 #include <list>
@@ -138,12 +137,6 @@ void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, std::l
 	b->matches.insert(place, Match(p1, p2, num));
 }
 
-struct PotentialMatch {
-	unsigned p1, p2;
-	PotentialMatch(unsigned p1, unsigned p2)
-		{this->p1 = p1; this->p2 = p2;}
-};
-
 template<class T>
 T absoluteDifference(T a, T b) {
 	return std::max(a, b) - std::min(a, b);
@@ -154,8 +147,8 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSiz
 	STACK_ALLOC(buf1, Token, blocksize);
 	STACK_ALLOC(buf2, Token, blocksize);
 
-	std::list<PotentialMatch> pMatch;
-	unsigned processMatchesPos = end;
+	unsigned best1, best2, bestnum = 0;
+	unsigned processMatchesPos;
 	Token *inbuf = b->read2(buf1, start, blocksize),
 	      *outbuf;
 	Hash hash = Hash(inbuf, blocksize);
@@ -167,69 +160,53 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSiz
 		if (c && hash.getValue() != lastChecksum) {
 			do {
 				if (c->cksum == hash.getValue()) {
-					pMatch.push_back(PotentialMatch(c->loc, j - blocksize));
-					processMatchesPos = std::min(j + blocksize - 1, processMatchesPos);
+					unsigned p1 = c->loc, p2 = j - blocksize;
+					unsigned fnum = match_forward(b, p1, p2);
+					if (fnum >= blocksize) {
+						unsigned bnum = match_backward(b, p1, p2, blocksize);
+						unsigned num = fnum + bnum;
+						if (num >= minMatchSize) {
+							p1 -= bnum; p2 -= bnum;
+							bool foundBetter;
+							if (bestnum) {
+								double oldValue = double(bestnum) / (absoluteDifference(place, best1) + blocksize * 2),
+									   newValue = double(num) / (absoluteDifference(place, p1) + blocksize * 2);
+								foundBetter = newValue > oldValue;
+							} else {
+								foundBetter = true;
+								processMatchesPos = j + blocksize - 1;
+							}
+							if (foundBetter) {
+								best1 = p1;
+								best2 = p2;
+								bestnum = num;
+							}
+
+						}
+					}
 				}
 				++c;
 			} while (h->tableIndex(c->cksum) == thisTableIndex);
 		}
 		lastChecksum = hash.getValue();
 
-		if (j >= processMatchesPos) {
-			processMatchesPos = end;
-			unsigned best1, best2, bestnum = 0;
-			for (std::list<PotentialMatch>::iterator i = pMatch.begin(); i != pMatch.end(); ++i) {
-				unsigned p1 = i->p1, p2 = i->p2;
-				unsigned fnum = match_forward(b, p1, p2);
-				if (fnum >= blocksize) {
-	#ifdef THOROUGH
-					for (unsigned betterP1 = p1 - (p1 ? 1 : 0); betterP1; --betterP1) {
-						unsigned nfnum = match_forward(b, betterP1, p2);
-						if (nfnum > fnum) {
-							fnum = nfnum;
-							p1 = betterP1;
-						} else
-							break;
-					}
-	#endif
-					unsigned bnum = match_backward(b, p1, p2, blocksize);
-					unsigned num = fnum + bnum;
-#ifndef CARELESSMATCH
-					if (num < minMatchSize)
-						continue;
-#endif
-
-					p1 -= bnum; p2 -= bnum;
-
-					// Weigh value of match size against the distance.
-					double oldValue = double(bestnum) / (absoluteDifference(place, best1) + blocksize * 2),
-						   newValue = double(num) / (absoluteDifference(place, p1) + blocksize * 2);
-					if (! bestnum || newValue > oldValue) {
-						best1 = p1;
-						best2 = p2;
-						bestnum = num;
-					}
+		if (bestnum && j >= processMatchesPos) {
+			addMatch(b, best1, best2, bestnum, iterPlace);
+			place = best1 + bestnum;
+			unsigned matchEnd = best2 + bestnum;
+			if (matchEnd > j) {
+				if (matchEnd >= end)
+					j = end;
+				else {
+					// Fast forward over matched area.
+					j = matchEnd - blocksize;
+					inbuf = b->read2(buf1, j, blocksize);
+					hash = Hash(inbuf, blocksize);
+					buf_loc = blocksize;
+					j += blocksize;
 				}
 			}
-			if (bestnum) {
-				addMatch(b, best1, best2, bestnum, iterPlace);
-				place = best1 + bestnum;
-				unsigned matchEnd = best2 + bestnum;
-				if (matchEnd > j) {
-					if (matchEnd >= end)
-						j = end;
-					else {
-						// Fast forward over matched area.
-						j = matchEnd - blocksize;
-						inbuf = b->read2(buf1, j, blocksize);
-						hash = Hash(inbuf, blocksize);
-						buf_loc = blocksize;
-						j += blocksize;
-					}
-				}
-			}
-
-			pMatch.clear();
+			bestnum = 0;
 		}
 
 		if (buf_loc == blocksize) {
