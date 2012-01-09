@@ -273,6 +273,14 @@ bool compareMatchP2(Match r1, Match r2) {
 	return r1.p2 < r2.p2;
 }
 
+// Adapted from http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+unsigned roundUpPowerOf2(unsigned v) {
+	--v;
+	for (int i = 1; i <= 16; i *= 2)
+		v |= v >> i;
+	return v + 1;
+}
+
 void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, UnusedRange *unused, unsigned numunused, UnusedRange *unused2, unsigned numunused2) {
 	Checksums_Instance h(blocksize);
 	b->access_int = -1;
@@ -283,11 +291,7 @@ void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize
 	}
 
 	// numblocks = size / blocksize;
-	h.htablesize = 1 << 16;
-	while (h.htablesize < numblocks) h.htablesize <<= 1;
-	// h.htablesize <<= 2;
-	// htablesize >>= 0;
-	// h.htablesize = 65536;
+	h.htablesize = std::max((unsigned)2, roundUpPowerOf2(numblocks));
 	h.htable = new checksum_entry*[h.htablesize];
 	if (!h.htable) {b->errorcode = BDELTA_MEM_ERROR; return;}
 	h.checksums = new checksum_entry[numblocks + 2];
