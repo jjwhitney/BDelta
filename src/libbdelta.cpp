@@ -415,7 +415,8 @@ void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, 
 	if (local) {
 		std::sort(unused, unused + numunused, comparemrp2);
 		for (unsigned i = 0; i < numunused; ++i)
-			bdelta_pass_2(b, blocksize, minMatchSize, unused + i, 1, unused2 + i, 1);
+			if (unused[i].num >= blocksize && unused2[i].num >= blocksize)
+				bdelta_pass_2(b, blocksize, minMatchSize, unused + i, 1, unused2 + i, 1);
 	}
 	else
 		bdelta_pass_2(b, blocksize, minMatchSize, unused, numunused, unused2, numunused2);
