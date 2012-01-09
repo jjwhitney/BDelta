@@ -274,8 +274,6 @@ bool compareMatchP2(Match r1, Match r2) {
 }
 
 unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, UnusedRange *unused, unsigned numunused, UnusedRange *unused2, unsigned numunused2) {
-	if (verbose) printf("Organizing leftover blocks\n");
-
 	Checksums_Instance h(blocksize);
 	b->access_int = -1;
 
@@ -285,19 +283,16 @@ unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatch
 	}
 
 	// numblocks = size / blocksize;
-	if (verbose) printf("found %i blocks of size %i\n", numblocks, blocksize);
 	h.htablesize = 1 << 16;
 	while (h.htablesize < numblocks) h.htablesize <<= 1;
 	// h.htablesize <<= 2;
 	// htablesize >>= 0;
-	if (verbose) printf("creating hash table of size %i\n", h.htablesize);
 	// h.htablesize = 65536;
 	h.htable = new checksum_entry*[h.htablesize];
 	if (!h.htable) {b->errorcode = BDELTA_MEM_ERROR; return 0;}
 	h.checksums = new checksum_entry[numblocks + 2];
 	if (!h.checksums) {b->errorcode = BDELTA_MEM_ERROR; return 0;}
 
-	if (verbose) printf("find checksums\n");
 
 	h.numchecksums = 0;
 	// unsigned numchecksums = 0;
@@ -335,17 +330,12 @@ unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatch
 	for (int i = h.numchecksums - 1; i >= 0; --i)
 		h.htable[h.tableIndex(h.checksums[i].cksum)] = &h.checksums[i];
 
-//  if (verbose) printf("%i checksums\n", h.numchecksums);
-	if (verbose) printf("compare files\n");
-
 	for (unsigned i = 0; i < numunused2; ++i)
 		if (unused2[i].num >= blocksize)
 			findMatches(b, &h, minMatchSize, unused2[i].p, unused2[i].p + unused2[i].num, unused[i].p, unused2[i].mr);
 
-	// printf("afterwards: %i, %i, %i\n", b->matches.first->next->obj->p1, b->matches.first->next->obj->p2, b->matches.first->next->obj->num);
 	delete [] h.htable;
 	delete [] h.checksums;
-	// printf("Found %i matches\n", b->matches.size());
 }
 
 void bdelta_swap_inputs(BDelta_Instance *b) {
@@ -425,6 +415,8 @@ void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, 
 	}
 	else
 		bdelta_pass_2(b, blocksize, minMatchSize, unused, numunused, unused2, numunused2);
+
+	if (verbose) printf("pass (blocksize: %d, matches: %zu)\n", blocksize, b->matches.size());
 
 	// Get rid of the dummy value we placed at the end.
 	b->matches.pop_back();
