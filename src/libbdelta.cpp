@@ -153,11 +153,10 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSiz
 	      *outbuf;
 	Hash hash = Hash(inbuf, blocksize);
 	unsigned buf_loc = blocksize;
-	Hash::Value lastChecksum = ~hash.getValue();
 	for (unsigned j = start + blocksize; j <= end; ++j) {
 		unsigned thisTableIndex = h->tableIndex(hash.getValue());
 		checksum_entry *c = h->htable[thisTableIndex];
-		if (c && hash.getValue() != lastChecksum) {
+		if (c) {
 			do {
 				if (c->cksum == hash.getValue()) {
 					unsigned p1 = c->loc, p2 = j - blocksize;
@@ -188,7 +187,6 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSiz
 				++c;
 			} while (h->tableIndex(c->cksum) == thisTableIndex);
 		}
-		lastChecksum = hash.getValue();
 
 		if (bestnum && j >= processMatchesPos) {
 			addMatch(b, best1, best2, bestnum, iterPlace);
