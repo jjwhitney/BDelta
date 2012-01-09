@@ -273,7 +273,7 @@ bool compareMatchP2(Match r1, Match r2) {
 	return r1.p2 < r2.p2;
 }
 
-unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, UnusedRange *unused, unsigned numunused, UnusedRange *unused2, unsigned numunused2) {
+void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, UnusedRange *unused, unsigned numunused, UnusedRange *unused2, unsigned numunused2) {
 	Checksums_Instance h(blocksize);
 	b->access_int = -1;
 
@@ -289,10 +289,9 @@ unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatch
 	// htablesize >>= 0;
 	// h.htablesize = 65536;
 	h.htable = new checksum_entry*[h.htablesize];
-	if (!h.htable) {b->errorcode = BDELTA_MEM_ERROR; return 0;}
+	if (!h.htable) {b->errorcode = BDELTA_MEM_ERROR; return;}
 	h.checksums = new checksum_entry[numblocks + 2];
-	if (!h.checksums) {b->errorcode = BDELTA_MEM_ERROR; return 0;}
-
+	if (!h.checksums) {b->errorcode = BDELTA_MEM_ERROR; return;}
 
 	h.numchecksums = 0;
 	// unsigned numchecksums = 0;
@@ -307,6 +306,7 @@ unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatch
 				h.add(checksum_entry(blocksum, loc));
 		}
 	}
+
 	if (h.numchecksums) {
 		std::sort(h.checksums, h.checksums + h.numchecksums, Checksums_Compare(h));
 #ifndef THOROUGH
