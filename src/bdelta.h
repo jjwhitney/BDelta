@@ -27,11 +27,14 @@ void *bdelta_init_alg(unsigned data1_size, unsigned data2_size,
 		unsigned tokenSize);
 void  bdelta_done_alg(void *instance);
 
-//returns the total number of matches found
-unsigned bdelta_pass(void *instance, unsigned blocksize);
+void bdelta_pass(void *instance, unsigned blocksize);
 
-//returns the total number of matches found
-unsigned bdelta_pass_local(void *instance, unsigned blocksize);
+void bdelta_pass_local(void *instance, unsigned blocksize);
+
+void bdelta_swap_inputs(void *instance);
+void bdelta_clean_matches(void *instance);
+
+unsigned bdelta_nummatches(void *instance);
 
 void bdelta_getMatch(void *instance, unsigned matchNum,
 	unsigned *p1, unsigned *p2, unsigned *num);

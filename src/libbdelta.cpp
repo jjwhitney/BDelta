@@ -399,7 +399,7 @@ unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, UnusedRange *unus
 	// printf("Found %i matches\n", b->matches.size());
 }
 
-void bdelta_switch_inputs(void *instance) {
+void bdelta_swap_inputs(void *instance) {
 	BDelta_Instance *b = (BDelta_Instance*)instance;
 
 	for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l)
@@ -407,7 +407,10 @@ void bdelta_switch_inputs(void *instance) {
 	std::swap(b->data1_size, b->data2_size);
 	std::swap(b->handle1, b->handle2);
 	b->matches.sort(compareMatchP2);
+}
 
+void bdelta_clean_matches(void *instance) {
+	BDelta_Instance *b = (BDelta_Instance*)instance;
 
 	std::list<Match>::iterator place = b->matches.begin();
 	while (place != b->matches.end()) {
@@ -428,7 +431,7 @@ void bdelta_switch_inputs(void *instance) {
 	}
 }
 
-unsigned bdelta_pass_3(void *instance, unsigned blocksize, bool local) {
+void bdelta_pass_3(void *instance, unsigned blocksize, bool local) {
 	BDelta_Instance *b = (BDelta_Instance*)instance;
 
 	//bdelta_switch_inputs(b);
@@ -438,7 +441,7 @@ unsigned bdelta_pass_3(void *instance, unsigned blocksize, bool local) {
 	//printf ("\n\n");
 
 	UnusedRange *unused = new UnusedRange[b->matches.size() + 1];
-	if (!unused) {b->errorcode = BDELTA_MEM_ERROR; return 0;}
+	if (!unused) {b->errorcode = BDELTA_MEM_ERROR; return;}
 	unsigned numunused = 0;
 	for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l)
 		unused[numunused++] = (UnusedRange){l->p1, l->num, l};
@@ -494,15 +497,19 @@ unsigned bdelta_pass_3(void *instance, unsigned blocksize, bool local) {
 	else
 		bdelta_pass_2(b, blocksize, unused, numunused, b->matches.begin(), b->matches.end());
 	delete [] unused;
+}
+
+void bdelta_pass(void *instance, unsigned blocksize) {
+	bdelta_pass_3(instance, blocksize, false);
+}
+
+void bdelta_pass_local(void *instance, unsigned blocksize) {
+	bdelta_pass_3(instance, blocksize, true);
+}
+
+unsigned bdelta_nummatches(void *instance) {
+	BDelta_Instance *b = (BDelta_Instance*)instance;
 	return b->matches.size();
-}
-
-unsigned bdelta_pass(void *instance, unsigned blocksize) {
-	return bdelta_pass_3(instance, blocksize, false);
-}
-
-unsigned bdelta_pass_local(void *instance, unsigned blocksize) {
-	return bdelta_pass_3(instance, blocksize, true);
 }
 
 void bdelta_getMatch(void *instance, unsigned matchNum, 
