@@ -271,7 +271,14 @@ struct Checksums_Compare {
 	Checksums_Instance &ci;
 	Checksums_Compare(Checksums_Instance &h) : ci(h) {}
 	bool operator() (checksum_entry c1, checksum_entry c2) {
-		return (ci.tableIndex(c1.cksum) < ci.tableIndex(c2.cksum));
+		unsigned ti1 = ci.tableIndex(c1.cksum), ti2 = ci.tableIndex(c2.cksum);
+		if (ti1 == ti2)
+			if (c1.cksum == c2.cksum)
+				return c1.loc < c2.loc;
+			else
+				return c1.cksum < c2.cksum;
+		else
+			return ti1 < ti2;
 	}
 };
 
@@ -381,8 +388,9 @@ unsigned bdelta_pass(void *instance, unsigned blocksize) {
 #endif
 	}
 
-	h.checksums[h.numchecksums].cksum = 0;
-	h.checksums[h.numchecksums + 1].cksum = std::numeric_limits<Hash::Value>::max();
+	h.checksums[h.numchecksums].cksum = std::numeric_limits<Hash::Value>::max(); // If there's only one checksum, we might hit this and not know it,
+	h.checksums[h.numchecksums].loc = 0; // So we'll just read from the beginning of the file to prevent crashes.
+	h.checksums[h.numchecksums + 1].cksum = 0;
 
 	for (unsigned i = 0; i < h.htablesize; ++i) h.htable[i] = 0;
 	for (int i = h.numchecksums - 1; i >= 0; --i)
