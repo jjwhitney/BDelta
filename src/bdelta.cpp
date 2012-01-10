@@ -57,17 +57,21 @@ int main(int argc, char **argv) {
 		// 161-180  947	953	967	971	977	983	991	997
 
 		int seq[] = {503, 127, 31, 7, 5, 3, -31, 31, 7, 5, 3, -7, 2};
-		for (unsigned i = 0; i < sizeof(seq) / sizeof(seq[0]); ++i) {
-			if (seq[i] < 0)
-				bdelta_pass(b, -seq[i], -seq[i] * 2, false);
-			else
-				bdelta_pass(b, seq[i], seq[i] * 2, true);
+		bdelta_pass(b, 4000, 8000, true);
+		bdelta_pass(b, 503, 1006, true);
+		bdelta_pass(b, 127, 254, true);
+		bdelta_pass(b, 31 , 62 , true);
+		bdelta_pass(b, 7  , 14 , true);
+		bdelta_pass(b, 5  , 10 , true);
+		bdelta_pass(b, 3  , 6  , true);
+		bdelta_pass(b, 31 , 62 , false);
+		bdelta_pass(b, 31 , 62 , true);
+		bdelta_pass(b, 7  , 14 , true);
+		bdelta_pass(b, 5  , 10 , true);
+		bdelta_pass(b, 3  , 6  , true);
+		bdelta_pass(b, 7  , 14 , false);
+		bdelta_pass(b, 2  , 4  , true);
 
-			bdelta_swap_inputs(b);
-			bdelta_clean_matches(b, true);
-		}
-
-		bdelta_swap_inputs(b);
 		bdelta_clean_matches(b, true);
 
 		nummatches = bdelta_nummatches(b);

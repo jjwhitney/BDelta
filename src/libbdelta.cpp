@@ -130,25 +130,10 @@ inline T prior(T i) {return --i;}
 template <class T>
 inline T next(T i) {return ++i;}
 
-void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, std::list<Match>::iterator place) {
-	while (place != b->matches.begin() && prior(place)->p2 >= p2)
-		b->matches.erase(prior(place));
-#ifndef ALLOW_OVERLAP
-	//if (place != b->matches.begin() && prior(place)->p2 + prior(place)->num > p2)
-	//	prior(place)->num = p2 - prior(place)->p2;
-	//if (place != b->matches.end() && p2 + num > place->p2)
-	//	num = place->p2 - p2;
-#endif
-	// printf("%i, %i, %i, %x, %x\n", p1, p2, num, place, next);
-	b->matches.insert(place, Match(p1, p2, num));
-}
-
 struct PotentialMatch {
 	unsigned p1, p2;
-	Hash::Value cksum;
-	PotentialMatch() {}
-	PotentialMatch(unsigned p1, unsigned p2, Hash::Value cksum)
-		{this->p1 = p1; this->p2 = p2; this->cksum = cksum;}
+	PotentialMatch(unsigned p1, unsigned p2)
+		{this->p1 = p1; this->p2 = p2;}
 };
 
 template<class T>
@@ -156,11 +141,7 @@ T absoluteDifference(T a, T b) {
 	return std::max(a, b) - std::min(a, b);
 }
 
-unsigned lastP1(BDelta_Instance *b, std::list<Match>::iterator place) {
-	return place != b->matches.begin() ? prior(place)->p1 + prior(place)->num : 0;
-}
-
-void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSize, unsigned start, unsigned end, std::list<Match>::iterator place) {
+void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSize, unsigned start, unsigned end, unsigned place) {
 	const unsigned blocksize = h->blocksize;
 	STACK_ALLOC(buf1, Token, blocksize);
 	STACK_ALLOC(buf2, Token, blocksize);
@@ -178,7 +159,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSiz
 		if (c && hash.getValue() != lastChecksum) {
 			do {
 				if (c->cksum == hash.getValue()) {
-					pMatch.push_back(PotentialMatch(c->loc, j - blocksize, c->cksum));
+					pMatch.push_back(PotentialMatch(c->loc, j - blocksize));
 					processMatchesPos = std::min(j + blocksize - 1, processMatchesPos);
 				}
 				++c;
@@ -212,10 +193,9 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSiz
 
 					p1 -= bnum; p2 -= bnum;
 
-					unsigned lP1 = lastP1(b, place);
 					// Weigh value of match size against the distance.
-					double oldValue = double(bestnum) / (absoluteDifference(lP1, best1) + blocksize * 2),
-						   newValue = double(num) / (absoluteDifference(lP1, p1) + blocksize * 2);
+					double oldValue = double(bestnum) / (absoluteDifference(place, best1) + blocksize * 2),
+						   newValue = double(num) / (absoluteDifference(place, p1) + blocksize * 2);
 					if (! bestnum || newValue > oldValue) {
 						best1 = p1;
 						best2 = p2;
@@ -224,14 +204,20 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSiz
 				}
 			}
 			if (bestnum) {
-				addMatch(b, best1, best2, bestnum, place);
-				if (best2 + bestnum > j) {
-					// Fast forward over matched area.
-					j = best2 + bestnum - blocksize;
-					inbuf = b->read2(buf1, j, blocksize);
-					hash = Hash(inbuf, blocksize);
-					buf_loc = blocksize;
-					j += blocksize;
+				b->matches.push_back(Match(best1, best2, bestnum));
+				place = best1 + bestnum;
+				unsigned matchEnd = best2 + bestnum;
+				if (matchEnd > j) {
+					if (matchEnd >= end)
+						j = end;
+					else {
+						// Fast forward over matched area.
+						j = matchEnd - blocksize;
+						inbuf = b->read2(buf1, j, blocksize);
+						hash = Hash(inbuf, blocksize);
+						buf_loc = blocksize;
+						j += blocksize;
+					}
 				}
 			}
 
@@ -371,7 +357,7 @@ unsigned bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatch
 
 	for (unsigned i = 0; i < numunused2; ++i)
 		if (unused2[i].num >= blocksize)
-			findMatches(b, &h, minMatchSize, unused2[i].p, unused2[i].p + unused2[i].num, unused2[i].mr);
+			findMatches(b, &h, minMatchSize, unused2[i].p, unused2[i].p + unused2[i].num, unused[i].p);
 
 	// printf("afterwards: %i, %i, %i\n", b->matches.first->next->obj->p1, b->matches.first->next->obj->p2, b->matches.first->next->obj->num);
 	delete [] h.htable;
@@ -384,10 +370,11 @@ void bdelta_swap_inputs(BDelta_Instance *b) {
 		std::swap(l->p1, l->p2);
 	std::swap(b->data1_size, b->data2_size);
 	std::swap(b->handle1, b->handle2);
-	b->matches.sort(compareMatchP2);
 }
 
 void bdelta_clean_matches(BDelta_Instance *b, bool removeOverlap) {
+	// TODO: delete worse match when there's a conflict.
+	b->matches.sort(compareMatchP2);
 	std::list<Match>::iterator place = b->matches.begin();
 	while (true) {
 		while (place != b->matches.begin() && place != b->matches.end() && prior(place)->p2 + prior(place)->num >= place->p2 + place->num)
