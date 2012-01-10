@@ -313,7 +313,6 @@ void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize
 
 	if (h.numchecksums) {
 		std::sort(h.checksums, h.checksums + h.numchecksums, Checksums_Compare(h));
-#ifndef THOROUGH
 		const unsigned maxIdenticalChecksums = 2;
 		unsigned writeLoc = 0, readLoc, testAhead;
 		for (readLoc = 0; readLoc < h.numchecksums; readLoc = testAhead) {
@@ -324,7 +323,6 @@ void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize
 					h.checksums[writeLoc++] = h.checksums[i];
 		}
 		h.numchecksums = writeLoc;
-#endif
 	}
 	h.checksums[h.numchecksums].cksum = std::numeric_limits<Hash::Value>::max(); // If there's only one checksum, we might hit this and not know it,
 	h.checksums[h.numchecksums].loc = 0; // So we'll just read from the beginning of the file to prevent crashes.
