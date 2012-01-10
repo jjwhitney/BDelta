@@ -65,17 +65,13 @@ int main(int argc, char **argv) {
 		my_pass(b, 997, 1994, true);
 		my_pass(b, 503, 1006, true);
 		my_pass(b, 127, 254, true);
-		my_pass(b, 31 , 62 , true);
-		my_pass(b, 7  , 14 , true);
-		my_pass(b, 5  , 10 , true);
-		my_pass(b, 3  , 6  , true);
-		my_pass(b, 31 , 62 , false);
-		my_pass(b, 31 , 62 , true);
-		my_pass(b, 7  , 14 , true);
-		my_pass(b, 5  , 10 , true);
-		my_pass(b, 3  , 6  , true);
-		my_pass(b, 7  , 14 , false);
-		my_pass(b, 2  , 4  , true);
+		my_pass(b,  31,  62, true);
+		my_pass(b,   7,  14, true);
+		my_pass(b,   5,  10, true);
+		my_pass(b,   3,   6, true);
+		my_pass(b,  13,  26, false);
+		my_pass(b,   7,  14, true);
+		my_pass(b,   5,  10, true);
 
 		bdelta_clean_matches(b, true);
 
