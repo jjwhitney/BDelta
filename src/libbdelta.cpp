@@ -137,10 +137,10 @@ void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, std::l
 	while (place != b->matches.begin() && prior(place)->p2 >= p2)
 		b->matches.erase(prior(place));
 #ifndef ALLOW_OVERLAP
-	if (place != b->matches.begin() && prior(place)->p2 + prior(place)->num > p2)
-		prior(place)->num = p2 - prior(place)->p2;
-	if (place != b->matches.end() && p2 + num > place->p2)
-		num = place->p2 - p2;
+	//if (place != b->matches.begin() && prior(place)->p2 + prior(place)->num > p2)
+	//	prior(place)->num = p2 - prior(place)->p2;
+	//if (place != b->matches.end() && p2 + num > place->p2)
+	//	num = place->p2 - p2;
 #endif
 	// printf("%i, %i, %i, %x, %x\n", p1, p2, num, place, next);
 	b->matches.insert(place, Match(p1, p2, num));
