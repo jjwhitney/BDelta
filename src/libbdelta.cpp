@@ -49,7 +49,7 @@ struct Match {
 		{this->p1 = p1; this->p2 = p2; this->num = num;}
 };
 
-struct BDelta_Instance {
+struct _BDelta_Instance {
 	bdelta_readCallback cb;
 	void *handle1, *handle2;
 	unsigned data1_size, data2_size;
@@ -348,7 +348,7 @@ void bdelta_swap_inputs(BDelta_Instance *b) {
 	b->matches.sort(compareMatchP2);
 }
 
-void bdelta_clean_matches(BDelta_Instance *b, bool removeOverlap) {
+void bdelta_clean_matches(BDelta_Instance *b, int removeOverlap) {
 	// TODO: delete worse match when there's a conflict.
 	std::list<Match>::iterator place = b->matches.begin();
 	while (true) {
@@ -390,7 +390,7 @@ void get_unused_blocks(UnusedRange *unused, unsigned *numunusedptr) {
 	}
 }
 
-void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, bool local) {
+void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, int local) {
 	// Trick for including the free range at the end.
 	b->matches.push_back(Match(b->data1_size, b->data2_size, 0));
 
@@ -428,7 +428,7 @@ void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, 
 	delete [] unused2;
 }
 
-unsigned bdelta_nummatches(BDelta_Instance *b) {
+unsigned bdelta_numMatches(BDelta_Instance *b) {
 	return b->matches.size();
 }
 

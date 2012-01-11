@@ -17,7 +17,7 @@
 extern "C" {
 #endif // __cplusplus
 
-struct BDelta_Instance;
+typedef struct _BDelta_Instance BDelta_Instance;
 
 // Callback function must return a pointer to the data requested.
 // A "fill and forget" buffer is provided, but can be ignored, so
@@ -29,12 +29,12 @@ BDelta_Instance *bdelta_init_alg(unsigned data1_size, unsigned data2_size,
 		unsigned tokenSize);
 void bdelta_done_alg(BDelta_Instance *b);
 
-void bdelta_pass(BDelta_Instance *b, unsigned blockSize, unsigned minMatchSize, bool local);
+void bdelta_pass(BDelta_Instance *b, unsigned blockSize, unsigned minMatchSize, int local);
 
 void bdelta_swap_inputs(BDelta_Instance *b);
-void bdelta_clean_matches(BDelta_Instance *b, bool removeOverlap);
+void bdelta_clean_matches(BDelta_Instance *b, int removeOverlap);
 
-unsigned bdelta_nummatches(BDelta_Instance *b);
+unsigned bdelta_numMatches(BDelta_Instance *b);
 
 void bdelta_getMatch(BDelta_Instance *b, unsigned matchNum,
 	unsigned *p1, unsigned *p2, unsigned *num);
