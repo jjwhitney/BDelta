@@ -62,16 +62,16 @@ int main(int argc, char **argv) {
 		// 161-180  947	953	967	971	977	983	991	997
 
 		int seq[] = {503, 127, 31, 7, 5, 3, -31, 31, 7, 5, 3, -7, 2};
-		my_pass(b, 997, 1994, BDELTA_LOCAL);
-		my_pass(b, 503, 1006, BDELTA_LOCAL);
-		my_pass(b, 127, 254, BDELTA_LOCAL);
-		my_pass(b,  31,  62, BDELTA_LOCAL);
-		my_pass(b,   7,  14, BDELTA_LOCAL);
-		my_pass(b,   5,  10, BDELTA_LOCAL);
-		my_pass(b,   3,   6, BDELTA_LOCAL);
-		my_pass(b,  13,  26, 0);
-		my_pass(b,   7,  14, BDELTA_LOCAL);
-		my_pass(b,   5,  10, BDELTA_LOCAL);
+		my_pass(b, 997, 1994, 0);
+		my_pass(b, 503, 1006, 0);
+		my_pass(b, 127, 254, 0);
+		my_pass(b,  31,  62, 0);
+		my_pass(b,   7,  14, 0);
+		my_pass(b,   5,  10, 0);
+		my_pass(b,   3,   6, 0);
+		my_pass(b,  13,  26, BDELTA_GLOBAL);
+		my_pass(b,   7,  14, 0);
+		my_pass(b,   5,  10, 0);
 
 		nummatches = bdelta_numMatches(b);
 

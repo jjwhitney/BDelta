@@ -8,10 +8,10 @@ cdef extern from "bdelta.h":
         unsigned tokenSize)
     void bdelta_done_alg(BDelta_Instance *b)
     
-    void bdelta_pass(BDelta_Instance *b, unsigned blockSize, unsigned minMatchSize, bint local)
+    void bdelta_pass(BDelta_Instance *b, unsigned blockSize, unsigned minMatchSize, unsigned maxHoleSize, unsigned flags)
 
     void bdelta_swap_inputs(BDelta_Instance *b)
-    void bdelta_clean_matches(BDelta_Instance *b, int removeOverlap)
+    void bdelta_clean_matches(BDelta_Instance *b, unsigned flags)
 
     unsigned bdelta_numMatches(BDelta_Instance *b)
 
@@ -20,6 +20,12 @@ cdef extern from "bdelta.h":
 
     int bdelta_getError(BDelta_Instance *b)
     void bdelta_showMatches(BDelta_Instance *b)
+
+    cdef enum PassFlags:
+        BDELTA_GLOBAL,
+        BDELTA_SIDES_ORDERED
+    cdef enum CleanFlags:
+        BDELTA_REMOVE_OVERLAP
 
 cdef void *readCallback(void *handle, void *buf, unsigned place, unsigned num):
     cdef char *str = <bytes>handle
@@ -39,8 +45,9 @@ cdef class BDelta:
         self.str2 = None
         bdelta_done_alg(self._b)
 
-    def b_pass(self, blockSize, minMatchSize, local):
-        bdelta_pass(self._b, blockSize, minMatchSize, local)
+    def b_pass(self, blockSize, minMatchSize, maxHoleSize, globalScope = False, sidesOrdered = False):
+        bdelta_pass(self._b, blockSize, minMatchSize, maxHoleSize,
+        	(BDELTA_GLOBAL if globalScope else 0) | (BDELTA_SIDES_ORDERED if sidesOrdered else 0))
 
     def matches(self):
         cdef unsigned p1, p2, num

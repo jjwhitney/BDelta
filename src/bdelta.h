@@ -43,7 +43,7 @@ int bdelta_getError(BDelta_Instance *b);
 void bdelta_showMatches(BDelta_Instance *b);
 
 // Flags for bdelta_pass()
-#define BDELTA_LOCAL 1
+#define BDELTA_GLOBAL 1
 #define BDELTA_SIDES_ORDERED 2
 
 // Flags for bdelta_clean_matches()
