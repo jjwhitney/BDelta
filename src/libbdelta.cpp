@@ -173,7 +173,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSiz
 								foundBetter = newValue > oldValue;
 							} else {
 								foundBetter = true;
-								processMatchesPos = j + blocksize - 1;
+								processMatchesPos = std::min(j + blocksize - 1, end);
 							}
 							if (foundBetter) {
 								best1 = p1;
