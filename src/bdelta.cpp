@@ -25,9 +25,9 @@ void *f_read(void *f, void *buf, unsigned place, unsigned num) {
 	return buf;
 }
 
-void my_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, bool local) {
-	bdelta_pass(b, blocksize, minMatchSize, local);
-	bdelta_clean_matches(b, true);
+void my_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned flags) {
+	bdelta_pass(b, blocksize, minMatchSize, flags);
+	bdelta_clean_matches(b, BDELTA_REMOVE_OVERLAP);
 }
 
 int main(int argc, char **argv) {
@@ -62,20 +62,18 @@ int main(int argc, char **argv) {
 		// 161-180  947	953	967	971	977	983	991	997
 
 		int seq[] = {503, 127, 31, 7, 5, 3, -31, 31, 7, 5, 3, -7, 2};
-		my_pass(b, 997, 1994, true);
-		my_pass(b, 503, 1006, true);
-		my_pass(b, 127, 254, true);
-		my_pass(b,  31,  62, true);
-		my_pass(b,   7,  14, true);
-		my_pass(b,   5,  10, true);
-		my_pass(b,   3,   6, true);
-		my_pass(b,  13,  26, false);
-		my_pass(b,   7,  14, true);
-		my_pass(b,   5,  10, true);
+		my_pass(b, 997, 1994, BDELTA_LOCAL);
+		my_pass(b, 503, 1006, BDELTA_LOCAL);
+		my_pass(b, 127, 254, BDELTA_LOCAL);
+		my_pass(b,  31,  62, BDELTA_LOCAL);
+		my_pass(b,   7,  14, BDELTA_LOCAL);
+		my_pass(b,   5,  10, BDELTA_LOCAL);
+		my_pass(b,   3,   6, BDELTA_LOCAL);
+		my_pass(b,  13,  26, 0);
+		my_pass(b,   7,  14, BDELTA_LOCAL);
+		my_pass(b,   5,  10, BDELTA_LOCAL);
 
-		bdelta_clean_matches(b, true);
-
-		nummatches = bdelta_nummatches(b);
+		nummatches = bdelta_numMatches(b);
 
 		unsigned * copyloc1 = new unsigned[nummatches + 1];
 		unsigned * copyloc2 = new unsigned[nummatches + 1];

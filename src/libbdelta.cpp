@@ -348,7 +348,7 @@ void bdelta_swap_inputs(BDelta_Instance *b) {
 	b->matches.sort(compareMatchP2);
 }
 
-void bdelta_clean_matches(BDelta_Instance *b, int removeOverlap) {
+void bdelta_clean_matches(BDelta_Instance *b, unsigned flags) {
 	// TODO: delete worse match when there's a conflict.
 	std::list<Match>::iterator place = b->matches.begin();
 	while (true) {
@@ -358,7 +358,7 @@ void bdelta_clean_matches(BDelta_Instance *b, int removeOverlap) {
 		if (place == b->matches.end())
 			break;
 
-		if (removeOverlap)
+		if (flags & BDELTA_REMOVE_OVERLAP)
 			if (place != b->matches.begin() && prior(place)->p2 + prior(place)->num > place->p2) {
 				prior(place)->num = place->p2 - prior(place)->p2;
 				if (! prior(place)->num)
@@ -390,7 +390,7 @@ void get_unused_blocks(UnusedRange *unused, unsigned *numunusedptr) {
 	}
 }
 
-void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, int local) {
+void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned flags) {
 	// Trick for including the free range at the end.
 	b->matches.push_back(Match(b->data1_size, b->data2_size, 0));
 
@@ -410,7 +410,7 @@ void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, 
 	get_unused_blocks(unused2, &numunused2);
 	//std::sort(unused2, unused2 + numunused2, comparemrp2);
 
-	if (local) {
+	if (flags & BDELTA_LOCAL) {
 		std::sort(unused, unused + numunused, comparemrp2);
 		for (unsigned i = 0; i < numunused; ++i)
 			if (unused[i].num >= blocksize && unused2[i].num >= blocksize)

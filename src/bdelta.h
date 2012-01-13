@@ -29,10 +29,10 @@ BDelta_Instance *bdelta_init_alg(unsigned data1_size, unsigned data2_size,
 		unsigned tokenSize);
 void bdelta_done_alg(BDelta_Instance *b);
 
-void bdelta_pass(BDelta_Instance *b, unsigned blockSize, unsigned minMatchSize, int local);
+void bdelta_pass(BDelta_Instance *b, unsigned blockSize, unsigned minMatchSize, unsigned flags);
 
 void bdelta_swap_inputs(BDelta_Instance *b);
-void bdelta_clean_matches(BDelta_Instance *b, int removeOverlap);
+void bdelta_clean_matches(BDelta_Instance *b, unsigned flags);
 
 unsigned bdelta_numMatches(BDelta_Instance *b);
 
@@ -41,6 +41,13 @@ void bdelta_getMatch(BDelta_Instance *b, unsigned matchNum,
 
 int bdelta_getError(BDelta_Instance *b);
 void bdelta_showMatches(BDelta_Instance *b);
+
+// Flags for bdelta_pass()
+#define BDELTA_LOCAL 1
+#define BDELTA_SIDES_ORDERED 2
+
+// Flags for bdelta_clean_matches()
+#define BDELTA_REMOVE_OVERLAP 1
 
 enum BDELTA_RESULT {
 	BDELTA_OK         =  0,
