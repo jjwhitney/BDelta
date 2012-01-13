@@ -26,7 +26,7 @@ void *f_read(void *f, void *buf, unsigned place, unsigned num) {
 }
 
 void my_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned flags) {
-	bdelta_pass(b, blocksize, minMatchSize, flags);
+	bdelta_pass(b, blocksize, minMatchSize, 0, flags);
 	bdelta_clean_matches(b, BDELTA_REMOVE_OVERLAP);
 }
 

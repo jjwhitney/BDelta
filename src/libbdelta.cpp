@@ -390,7 +390,7 @@ void get_unused_blocks(UnusedRange *unused, unsigned *numunusedptr) {
 	}
 }
 
-void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned flags) {
+void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned maxHoleSize, unsigned flags) {
 	// Trick for including the free range at the end.
 	b->matches.push_back(Match(b->data1_size, b->data2_size, 0));
 
@@ -412,11 +412,14 @@ void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, 
 
 	if (flags & BDELTA_LOCAL) {
 		std::sort(unused, unused + numunused, comparemrp2);
-		for (unsigned i = 0; i < numunused; ++i)
-			if (unused[i].num >= blocksize && unused2[i].num >= blocksize)
-				bdelta_pass_2(b, blocksize, minMatchSize, unused + i, 1, unused2 + i, 1);
-	}
-	else
+		for (unsigned i = 0; i < numunused; ++i) {
+			UnusedRange u1 = unused[i], u2 = unused2[i];
+			if (u1.num >= blocksize && u2.num >= blocksize)
+				if (! maxHoleSize || (u1.num <= maxHoleSize && u2.num <= maxHoleSize))
+					if (! (flags & BDELTA_SIDES_ORDERED) || (next(u1.ml) == u1.mr))
+						bdelta_pass_2(b, blocksize, minMatchSize, &u1, 1, &u2, 1);
+		}
+	} else
 		bdelta_pass_2(b, blocksize, minMatchSize, unused, numunused, unused2, numunused2);
 
 	if (verbose) printf("pass (blocksize: %d, matches: %zu)\n", blocksize, b->matches.size());
