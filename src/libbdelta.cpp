@@ -259,6 +259,10 @@ void bdelta_done_alg(BDelta_Instance *b) {
 struct UnusedRange {
 	unsigned p, num;
 	std::list<Match>::iterator ml, mr;
+	UnusedRange() {}
+	UnusedRange(unsigned p, unsigned num, std::list<Match>::iterator ml, std::list<Match>::iterator mr) {
+		this->p = p; this->num = num; this->ml = ml; this->mr = mr;
+	}
 };
 
 
@@ -383,7 +387,7 @@ void get_unused_blocks(UnusedRange *unused, unsigned *numunusedptr) {
 		unsigned nextstart = unused[i].p + unused[i].num;
 
 		std::list<Match>::iterator mr = unused[i].ml;
-		unused[i] = (UnusedRange){last, unused[i].p < last ? 0 : unused[i].p - last, lastnext, mr};
+		unused[i] = UnusedRange(last, unused[i].p < last ? 0 : unused[i].p - last, lastnext, mr);
 		lastnext = next(mr);
 
 		last = std::max(last, nextstart);
@@ -398,8 +402,8 @@ void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, 
 			    *unused2 = new UnusedRange[b->matches.size() + 1];
 	unsigned numunused = 0, numunused2 = 0;
 	for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l) {
-		unused[numunused++] = (UnusedRange){l->p1, l->num, l};
-		unused2[numunused2++] = (UnusedRange){l->p2, l->num, l};
+		unused[numunused++] = UnusedRange(l->p1, l->num, l, l);
+		unused2[numunused2++] = UnusedRange(l->p2, l->num, l, l);
 	}
 
 	std::sort(unused, unused + numunused, comparep);
