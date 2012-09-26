@@ -15,6 +15,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
 #include "bdelta.h"
 #include "file.h"
 #include "compatibility.h"
@@ -25,6 +27,11 @@ void *f_read(void *f, void *buf, unsigned place, unsigned num) {
 	return buf;
 }
 
+void *m_read(void *f, void *buf, unsigned place, unsigned num) {
+	memcpy (buf, (char*)f + place, num);
+	return buf;
+}
+
 void my_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned flags) {
 	bdelta_pass(b, blocksize, minMatchSize, 0, flags);
 	bdelta_clean_matches(b, BDELTA_REMOVE_OVERLAP);
@@ -32,8 +39,18 @@ void my_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsi
 
 int main(int argc, char **argv) {
 	try {
+		bool all_ram_mode = false;
+		char * m1 = NULL;
+		char * m2 = NULL;
+
+		if (argc > 1 && strcmp(argv[1], "--all-in-ram") == 0)
+		{
+			all_ram_mode = true;
+			--argc;
+			++argv;
+		}
 		if (argc != 4) {
-			printf("usage: bdelta <oldfile> <newfile> <patchfile>\n");
+			printf("usage: bdelta [--all-in-ram] <oldfile> <newfile> <patchfile>\n");
 			printf("needs two files to compare + output file:\n");
 			exit(1);
 		}
@@ -45,8 +62,22 @@ int main(int argc, char **argv) {
 		unsigned size2 = getLenOfFile(argv[2]);
 		FILE *f1 = fopen(argv[1], "rb"),
 		     *f2 = fopen(argv[2], "rb");
+		
+		BDelta_Instance *b;
 
-		BDelta_Instance *b = bdelta_init_alg(size, size2, f_read, f1, f2, 1);
+		if (all_ram_mode)
+		{
+			m1 = new char[size];
+			m2 = new char[size2];
+			fread_fixed(f1, m1, size);
+			fread_fixed(f2, m2, size2);
+
+			b = bdelta_init_alg(size, size2, m_read, m1, m2, 1);
+		}
+		else
+		{
+			b = bdelta_init_alg(size, size2, f_read, f1, f2, 1);
+		}
 		int nummatches;
 
 		// List of primes for reference. Taken from Wikipedia.
@@ -129,7 +160,10 @@ int main(int argc, char **argv) {
 			while (num > 0) {
 					unsigned towrite = (num > 4096) ? 4096 : num;
 				unsigned char buf[4096];
-				f_read(f2, buf, fp, towrite);
+				if (all_ram_mode)
+					m_read(m2, buf, fp, towrite);
+				else
+					f_read(f2, buf, fp, towrite);
 				fwrite_fixed(fout, buf, towrite);
 				num -= towrite;
 				fp += towrite;
@@ -141,6 +175,9 @@ int main(int argc, char **argv) {
 		fclose(fout);
 
 		bdelta_done_alg(b);
+
+		delete [] m1;
+		delete [] m2;
 
 		fclose(f1);
 		fclose(f2);
