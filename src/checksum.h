@@ -18,7 +18,7 @@ struct Hash {
 public:
 	typedef uint64_t Value;
 	Hash() {}
-	Hash(Token *buf, unsigned blocksize) {
+	Hash(const Token *buf, unsigned blocksize) {
 		value = 0;
 		for (unsigned num = 0; num < blocksize; ++num)
 			advance_add(buf[num]);
