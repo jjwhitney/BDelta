@@ -113,6 +113,7 @@ unsigned match_backward(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned b
 	do {
 		numtoread = std::min(p1, p2);
 		if (numtoread > blocksize) numtoread = blocksize;
+		if (numtoread > 4096) numtoread = 4096;
 		p1 -= numtoread; p2 -= numtoread;
 		Token buf1[4096], buf2[4096];
 		const Token *read1 = b->read1(buf1, p1, numtoread),
