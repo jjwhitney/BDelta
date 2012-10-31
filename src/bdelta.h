@@ -22,7 +22,7 @@ typedef struct _BDelta_Instance BDelta_Instance;
 // Callback function must return a pointer to the data requested.
 // A "fill and forget" buffer is provided, but can be ignored, so
 // long as the data persists throughout the life of bdelta_pass().
-typedef void *(*bdelta_readCallback)(void *handle, void *buf, unsigned place, unsigned num);
+typedef const void *(*bdelta_readCallback)(void *handle, void *buf, unsigned place, unsigned num);
 
 BDelta_Instance *bdelta_init_alg(unsigned data1_size, unsigned data2_size,
 		bdelta_readCallback cb, void *handle1, void *handle2,

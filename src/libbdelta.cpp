@@ -58,10 +58,10 @@ struct _BDelta_Instance {
 	int access_int;
 	int errorcode;
 
-	Token *read1(void *buf, unsigned place, unsigned num)
-		{return (Token*)cb(handle1, buf, place, num);}
-	Token *read2(void *buf, unsigned place, unsigned num)
-		{return (Token*)cb(handle2, buf, place, num);}
+	const Token *read1(void *buf, unsigned place, unsigned num)
+		{return (const Token*)cb(handle1, buf, place, num);}
+	const Token *read2(void *buf, unsigned place, unsigned num)
+		{return (const Token*)cb(handle2, buf, place, num);}
 };
 
 struct Checksums_Instance {
@@ -82,15 +82,15 @@ struct Checksums_Instance {
 };
 
 
-unsigned match_buf_forward(void *buf1, void *buf2, unsigned num) { 
+unsigned match_buf_forward(const void *buf1, const void *buf2, unsigned num) { 
 	unsigned i = 0;
-	while (i < num && ((Token*)buf1)[i]==((Token*)buf2)[i]) ++i;
+	while (i < num && ((const Token*)buf1)[i]==((const Token*)buf2)[i]) ++i;
 	return i;
 }
-unsigned match_buf_backward(void *buf1, void *buf2, unsigned num) { 
+unsigned match_buf_backward(const void *buf1, const void *buf2, unsigned num) { 
 	int i = num;
 	do --i;
-	while (i >= 0 && ((Token*)buf1)[i] == ((Token*)buf2)[i]);
+	while (i >= 0 && ((const Token*)buf1)[i] == ((const Token*)buf2)[i]);
 	return num - i - 1;
 }
 unsigned match_forward(BDelta_Instance *b, unsigned p1, unsigned p2) { 
@@ -99,8 +99,8 @@ unsigned match_forward(BDelta_Instance *b, unsigned p1, unsigned p2) {
 		numtoread = std::min(b->data1_size - p1, b->data2_size - p2);
 		if (numtoread > 4096) numtoread = 4096;
 		Token buf1[4096], buf2[4096];
-		Token *read1 = b->read1(buf1, p1, numtoread),
-		      *read2 = b->read2(buf2, p2, numtoread);
+		const Token *read1 = b->read1(buf1, p1, numtoread),
+		            *read2 = b->read2(buf2, p2, numtoread);
 		p1 += numtoread; p2 += numtoread;
 		match = match_buf_forward(read1, read2, numtoread);
 		num += match;
@@ -113,10 +113,11 @@ unsigned match_backward(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned b
 	do {
 		numtoread = std::min(p1, p2);
 		if (numtoread > blocksize) numtoread = blocksize;
+		if (numtoread > 4096) numtoread = 4096;
 		p1 -= numtoread; p2 -= numtoread;
 		Token buf1[4096], buf2[4096];
-		Token *read1 = b->read1(buf1, p1, numtoread),
-		      *read2 = b->read2(buf2, p2, numtoread);
+		const Token *read1 = b->read1(buf1, p1, numtoread),
+		            *read2 = b->read2(buf2, p2, numtoread);
 		match = match_buf_backward(read1, read2, numtoread);
 		num += match;
 	} while (match && match == numtoread);
@@ -149,8 +150,8 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSiz
 
 	unsigned best1, best2, bestnum = 0;
 	unsigned processMatchesPos;
-	Token *inbuf = b->read2(buf1, start, blocksize),
-	      *outbuf;
+	const Token *inbuf = b->read2(buf1, start, blocksize),
+	            *outbuf;
 	Hash hash = Hash(inbuf, blocksize);
 	unsigned buf_loc = blocksize;
 	for (unsigned j = start + blocksize; j <= end; ++j) {
@@ -307,7 +308,7 @@ void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize
 	for (unsigned i = 0; i < numunused; ++i) {
 		unsigned first = unused[i].p, last = unused[i].p + unused[i].num;
 		for (unsigned loc = first; loc + blocksize <= last; loc += blocksize) {
-			Token *read = b->read1(buf, loc, blocksize);
+			const Token *read = b->read1(buf, loc, blocksize);
 			Hash::Value blocksum = Hash(read, blocksize).getValue();
 			// Adjacent checksums are never repeated.
 			//if (! h.numchecksums || blocksum != h.checksums[h.numchecksums - 1].cksum)
