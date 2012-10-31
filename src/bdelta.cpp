@@ -28,8 +28,17 @@ const void *f_read(void *f, void *buf, unsigned place, unsigned num) {
 }
 
 const void *m_read(void *f, void * buf, unsigned place, unsigned num) {
-	memcpy (buf, (const char*)f + place, num);
-	return buf;
+	if (0) {
+		/*
+		 * BDelta uses only returned pointer
+		 * and does not modify it's contents.
+		 *
+		 * But bugs happen.
+		 */
+		memcpy (buf, (char*)f + place, num);
+		return buf;
+	}
+	return (const char*)f + place;
 }
 
 void my_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned flags) {
@@ -157,13 +166,14 @@ int main(int argc, char **argv) {
 		for (int i = 0; i < nummatches; ++i) {
 			unsigned num = copyloc2[i];
 			while (num > 0) {
-					unsigned towrite = (num > 4096) ? 4096 : num;
+				unsigned towrite = (num > 4096) ? 4096 : num;
 				unsigned char buf[4096];
+				const void * b;
 				if (all_ram_mode)
-					m_read(m2, buf, fp, towrite);
+					b = m_read(m2, buf, fp, towrite);
 				else
-					f_read(f2, buf, fp, towrite);
-				fwrite_fixed(fout, buf, towrite);
+					b = f_read(f2, buf, fp, towrite);
+				fwrite_fixed(fout, b, towrite);
 				num -= towrite;
 				fp += towrite;
 			}
