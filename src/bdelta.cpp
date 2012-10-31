@@ -21,14 +21,14 @@
 #include "file.h"
 #include "compatibility.h"
 
-void *f_read(void *f, void *buf, unsigned place, unsigned num) {
+const void *f_read(void *f, void *buf, unsigned place, unsigned num) {
 	fseek((FILE *)f, place, SEEK_SET);
 	fread_fixed((FILE *)f, buf, num);
 	return buf;
 }
 
-void *m_read(void *f, void *buf, unsigned place, unsigned num) {
-	memcpy (buf, (char*)f + place, num);
+const void *m_read(void *f, void * buf, unsigned place, unsigned num) {
+	memcpy (buf, (const char*)f + place, num);
 	return buf;
 }
 
@@ -92,7 +92,6 @@ int main(int argc, char **argv) {
 		// 141-160  811	821	823	827	829	839	853	857	859	863	877	881	883	887	907	911	919	929	937	941
 		// 161-180  947	953	967	971	977	983	991	997
 
-		int seq[] = {503, 127, 31, 7, 5, 3, -31, 31, 7, 5, 3, -7, 2};
 		my_pass(b, 997, 1994, 0);
 		my_pass(b, 503, 1006, 0);
 		my_pass(b, 127, 254, 0);
