@@ -238,7 +238,7 @@ BDelta_Instance *bdelta_init_alg(unsigned data1_size, unsigned data2_size,
 		bdelta_readCallback cb, void *handle1, void *handle2,
 		unsigned tokenSize) {
 	if (tokenSize != sizeof(Token)) {
-		printf("Error: BDelta library compiled for token size of %lu.\n", sizeof(Token));
+		printf("Error: BDelta library compiled for token size of %lu.\n", (unsigned long)sizeof (Token));
 		return 0;
 	}
 	BDelta_Instance *b = new BDelta_Instance;
@@ -428,7 +428,7 @@ void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, 
 		}
 	}
 
-	if (verbose) printf("pass (blocksize: %d, matches: %zu)\n", blocksize, b->matches.size());
+	if (verbose) printf("pass (blocksize: %u, matches: %lu)\n", blocksize, (unsigned long)b->matches.size());
 
 	// Get rid of the dummy value we placed at the end.
 	b->matches.pop_back();
