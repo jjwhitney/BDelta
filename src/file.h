@@ -38,7 +38,7 @@ void fread_fixed(FILE *f, void * _buf, unsigned num_bytes) {
 }
 
 void fwrite_fixed(FILE *f, const void * _buf, unsigned num_bytes) {
-	char * buf = (char *)_buf;
+	const char * buf = (const char *)_buf;
 
 	while (num_bytes != 0)
 	{
