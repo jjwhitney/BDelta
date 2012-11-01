@@ -9,7 +9,7 @@ ALL_TARGETS = bpatch libbdelta.so bdelta
 all: $(ALL_TARGETS)
 
 libbdelta.a: libbdelta.cpp compatibility.h checksum.h file.h
-	$(CXX) -c $(CXXFLAGS) $(LDFLAGS) $< -o $<.o
+	$(CXX) -c $(CXXFLAGS) $< -o $<.o
 	$(AR) rfs $@ $<.o
 
 libbdelta.so: libbdelta.cpp compatibility.h checksum.h file.h

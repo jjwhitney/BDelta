@@ -13,14 +13,48 @@
  * Author: John Whitney <jjw@deltup.org>
  */
 
-void fread_fixed(FILE *f, void *buf, unsigned num_bytes) {
-	if (fread(buf, 1, num_bytes, f) != num_bytes)
-		throw "File read error.";
+#include <stdio.h>
+
+#define MAX_IO_BLOCK_SIZE (1024 * 1024)
+
+void fread_fixed(FILE *f, void * _buf, unsigned num_bytes) {
+	char * buf = (char *)_buf;
+
+	while (num_bytes != 0)
+	{
+		unsigned block_size = num_bytes;
+		if (block_size > MAX_IO_BLOCK_SIZE) block_size = MAX_IO_BLOCK_SIZE;
+
+		size_t r = fread(buf, 1, block_size, f);
+		if (r != block_size)
+		{
+			static char read_error_message[128];
+			sprintf (read_error_message, "read error: fread_fixed(block_size=%u) != %u", block_size, (unsigned)r);
+			throw read_error_message;
+		}
+		buf       += block_size;
+		num_bytes -= block_size;
+	}
 }
 
-void fwrite_fixed(FILE *f, const void *buf, unsigned num_bytes) {
-	if (fwrite(buf, 1, num_bytes, f) != num_bytes)
-		throw "File write error.";
+void fwrite_fixed(FILE *f, const void * _buf, unsigned num_bytes) {
+	const char * buf = (const char *)_buf;
+
+	while (num_bytes != 0)
+	{
+		unsigned block_size = num_bytes;
+		if (block_size > MAX_IO_BLOCK_SIZE) block_size = MAX_IO_BLOCK_SIZE;
+
+		size_t r = fwrite(buf, 1, block_size, f);
+		if (r != block_size)
+		{
+			static char write_error_message[128];
+			sprintf (write_error_message, "write error: fwrite_fixed(num_bytes=%u) != %u", block_size, (unsigned)r);
+			throw write_error_message;
+		}
+		buf       += block_size;
+		num_bytes -= block_size;
+	}
 }
 
 unsigned read_word(FILE *f) {
