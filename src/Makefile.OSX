@@ -1,8 +1,0 @@
-CXXFLAGS=-D NDEBUG -O3
-all: libbdelta.dylib bdelta bpatch
-libbdelta.dylib: libbdelta.cpp compatibility.h container.h checksum.h file.h
-	${CC} -dynamiclib -lstdc++ ${CXXFLAGS} $< -o $@
-bdelta: bdelta.cpp compatibility.h bdelta.h container.h file.h
-	${CC} $< -L. -lbdelta -lstdc++ -o $@
-bpatch: bpatch.cpp compatibility.h bdelta.h file.h
-	${CC} $< -L. -lstdc++ -o $@
