@@ -2,6 +2,7 @@ cdef extern from "bdelta.h":
     ctypedef struct BDelta_Instance:
         pass
 
+    ctypedef void *const_void_ptr "const void*"
     ctypedef void *(*bdelta_readCallback)(void *handle, void *buf, unsigned place, unsigned num)
     BDelta_Instance *bdelta_init_alg(unsigned data1_size, unsigned data2_size,
         bdelta_readCallback cb, void *handle1, void *handle2,
@@ -27,7 +28,7 @@ cdef extern from "bdelta.h":
     cdef enum CleanFlags:
         BDELTA_REMOVE_OVERLAP
 
-cdef void *readCallback(void *handle, void *buf, unsigned place, unsigned num):
+cdef const_void_ptr readCallback(void *handle, void *buf, unsigned place, unsigned num):
     cdef char *str = <bytes>handle
     return str + ((place + 1) * 2);
 
