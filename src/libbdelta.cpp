@@ -130,12 +130,40 @@ inline T prior(T i) {return --i;}
 template <class T>
 inline T next(T i) {return ++i;}
 
+
+struct UnusedRange {
+	unsigned p, num;
+	std::list<Match>::iterator ml, mr;
+	UnusedRange() {}
+	UnusedRange(unsigned p, unsigned num, std::list<Match>::iterator ml, std::list<Match>::iterator mr) {
+		this->p = p; this->num = num; this->ml = ml; this->mr = mr;
+	}
+};
+
+// Sort first by location, second by match length (larger matches first)
+bool comparep(UnusedRange r1, UnusedRange r2) {
+	if (r1.p != r2.p)
+		return r1.p < r2.p;
+	return r1.num > r2.num;
+}
+bool comparemrp2(UnusedRange r1, UnusedRange r2) {
+	if (r1.mr->p2 != r2.mr->p2)
+		return r1.mr->p2 < r2.mr->p2;
+	return r1.mr->num > r2.mr->num;
+}
+bool compareMatchP2(Match r1, Match r2) {
+	if (r1.p2 != r2.p2)
+		return r1.p2 < r2.p2;
+	return r1.num > r2.num;
+}
+
 void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, std::list<Match>::iterator place) {
-	while (place != b->matches.begin() && prior(place)->p2 > p2)
+	Match newMatch = Match(p1, p2, num);
+	while (place != b->matches.begin() && ! compareMatchP2(*place, newMatch))
 		--place;
-	while (place != b->matches.end() && place->p2 < p2)
+	while (place != b->matches.end() && compareMatchP2(*place, newMatch))
 		++place;
-	b->matches.insert(place, Match(p1, p2, num));
+	b->matches.insert(place, newMatch);
 }
 
 template<class T>
@@ -257,26 +285,6 @@ void bdelta_done_alg(BDelta_Instance *b) {
 	delete b;
 }
 
-struct UnusedRange {
-	unsigned p, num;
-	std::list<Match>::iterator ml, mr;
-	UnusedRange() {}
-	UnusedRange(unsigned p, unsigned num, std::list<Match>::iterator ml, std::list<Match>::iterator mr) {
-		this->p = p; this->num = num; this->ml = ml; this->mr = mr;
-	}
-};
-
-
-bool comparep(UnusedRange r1, UnusedRange r2) {
-	return r1.p < r2.p;
-}
-bool comparemrp2(UnusedRange r1, UnusedRange r2) {
-	return r1.mr->p2 < r2.mr->p2;
-}
-
-bool compareMatchP2(Match r1, Match r2) {
-	return r1.p2 < r2.p2;
-}
 
 // Adapted from http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
 unsigned roundUpPowerOf2(unsigned v) {
