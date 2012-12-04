@@ -182,7 +182,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSiz
 	            *outbuf;
 	Hash hash = Hash(inbuf, blocksize);
 	unsigned buf_loc = blocksize;
-	for (unsigned j = start + blocksize; j <= end; ++j) {
+	for (unsigned j = start + blocksize; ; ++j) {
 		unsigned thisTableIndex = h->tableIndex(hash.getValue());
 		checksum_entry *c = h->htable[thisTableIndex];
 		if (c) {
@@ -241,6 +241,9 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSiz
 			std::swap(inbuf, outbuf);
 			inbuf = b->read2(outbuf == buf1 ? buf2 : buf1, j, std::min(end - j, blocksize));
 		}
+
+		if (j >= end)
+			break;
 
 		hash.advance(outbuf[buf_loc], inbuf[buf_loc]);
 		++buf_loc;
