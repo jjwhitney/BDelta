@@ -400,6 +400,8 @@ void get_unused_blocks(UnusedRange *unused, unsigned *numunusedptr) {
 	}
 }
 
+bool isZeroMatch(Match &m) {return m.num == 0;}
+
 void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned maxHoleSize, unsigned flags) {
 	// Place an empty Match at beginning so we can assume there's a Match to the left of every hole.
 	b->matches.push_front(Match(0, 0, 0));
@@ -437,7 +439,7 @@ void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, 
 	if (verbose) printf("pass (blocksize: %u, matches: %lu)\n", blocksize, (unsigned long)b->matches.size());
 
 	// Get rid of the dummy values we placed at the ends.
-	b->matches.pop_front();
+	b->matches.erase(std::find_if(b->matches.begin(), b->matches.end(), isZeroMatch));
 	b->matches.pop_back();
 
 	delete [] unused;
