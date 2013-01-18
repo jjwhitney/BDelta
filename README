@@ -1,4 +1,66 @@
 Author: John Whitney (jjw@deltup.org)
-License: GNU General Public License v2
+License: Mozilla Public License, v. 2.0.
 
-	BDelta is an advanced delta creator, patcher, and library.  This code is still beta quality, so don't expect too much!  It might not even produce correct deltas in some cases.  You can find the output format in file "Format"
+
+Introduction
+============
+
+BDelta is a sophisticated sequence matching library bundled with a delta
+creator and patch tool. This code is being used in production systems. Recent
+releases should be stable, fast, and accurate.
+
+
+Limitations / Warranty
+======================
+
+Note that there is currently a 4GB file size limitation.
+
+This software does not come with any guarantees. However, if you have any
+problems, please send me an e-mail and I'll likely be able to help. I would
+especially like to know about any bugs that you find.
+
+
+Library API C / C++
+===================
+
+BDelta can be used in a wide range of applications. It is easy for the library
+user to optimize its behavior to obtain better performance and results.
+
+The only header you need to include to use the library is "bdelta.h".
+
+The key thing to know about BDelta's algorithm is that it is designed to
+pass over the data multiple times, finding ever-smaller matches. The API
+is designed to give a great deal of control over each pass. This functionality
+is not well-documented, so contact me if you need help. I hope to add more
+comments to the code in future releases.
+
+
+Other Bindings
+==============
+
+A simple interface for accessing the API with Python is included. This
+interface is kept up-to-date since I do a lot of work in Python these days. To
+istall it, just type "python build.py install" in the root folder. You'll need 
+Cython to build/install, but Cython is not required after installation.
+
+See test/py_bindings.py for a usage example.
+
+
+Delta File Format
+=================
+
+The included delta creator / patch tool uses this simple binary format:
+
+(All numbers are stored in little-endian format)
+char[3] magic "BDT"
+uint16 version (1, but will increment if this binary format changes)
+uint8 integer size (size, in bytes, of <uintXX> and <intXX> fields.)
+<uintXX> file 1 size
+<uintXX> file 2 size
+<uintXX> number of matches
+for each match {
+	<intXX> location in file 1 (relative to last match)
+	<intXX> location in file 2 (relative to last match)
+	<uintXX> match size
+}
+<Any data which is not matched is appended here, at the end of the patch>
