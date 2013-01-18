@@ -1,3 +1,6 @@
+# Any copyright is dedicated to the Public Domain.
+# http://creativecommons.org/publicdomain/zero/1.0/
+
 from bdelta import BDelta
 
 a = u"The quick brown fox jumped over the lazy dog"

@@ -1,3 +1,6 @@
+# Any copyright is dedicated to the Public Domain.
+# http://creativecommons.org/publicdomain/zero/1.0/
+
 # First argument should be a test suite folder
 # Such folders contain subfolders with files 1 (old
 # version), and 2 (new version) of data that you
