@@ -1,0 +1,9 @@
+*.pyc
+*.dylib
+
+build
+RELEASE-VERSION
+src/bdelta
+src/bpatch
+src/bdelta.c
+
