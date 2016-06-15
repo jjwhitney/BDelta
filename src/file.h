@@ -87,6 +87,22 @@ int64_t read_varint(FILE* f) {
   throw read_error_message;
 }
 
+uint64_t read_varuint(FILE* f) {
+  char buf[20];
+  size_t i;
+  uint64_t l;
+  for (i=0; i<sizeof(buf); ++i) {
+    fread_fixed(f,buf+i,1);
+    if (!(buf[i]&0x80)) {
+      if (scan_varint(buf,i+1,&l)!=i+1) break;
+      return l;
+    }
+  }
+  static char read_error_message[128];
+  strcpy(read_error_message, "parse error: read_varint() failed");
+  throw read_error_message;
+}
+
 /* write int in least amount of bytes, return number of bytes */
 /* as used in varints from Google protocol buffers */
 static size_t fmt_varint(char* dest,uint64_t l) {
@@ -109,6 +125,11 @@ static size_t fmt_pb_type0_sint(char* dest,int64_t l) {
 void write_varint(FILE* f, int64_t number) {
   char tmp[20];
   fwrite_fixed(f,tmp,fmt_pb_type0_sint(tmp,number));
+}
+
+void write_varuint(FILE* f, uint64_t number) {
+  char tmp[20];
+  fwrite_fixed(f,tmp,fmt_varint(tmp,number));
 }
 
 bool fileExists(char *fname) {

@@ -37,61 +37,49 @@ int main(int argc, char **argv) {
 		}
 
 		FILE *patchfile = fopen(argv[3], "rb");
+		FILE *ref = fopen(argv[1], "rb");
 		char magic[3];
 		fread_fixed(patchfile, magic, 3);
 		if (strncmp(magic, "BDT", 3)) {
 			printf("Given file is not a recognized patchfile\n");
 			return 1;
 		}
-		unsigned short version = read_varint(patchfile);
+		unsigned short version = read_varuint(patchfile);
 		if (version != 3) {
 			printf("unsupported patch version\n");
 			return 1;
 		}
-		pos size1 = read_varint(patchfile),
-		    size2 = read_varint(patchfile);
+		pos size1 = read_varuint(patchfile),
+		    size2 = read_varuint(patchfile);
 
-		unsigned nummatches = read_varint(patchfile);
+		unsigned nummatches = read_varuint(patchfile);
 
-		pos * copyloc1 = new pos[nummatches + 1]; // locations in ref file
-		pos * copynump = new pos[nummatches + 1]; // num from patch file
-		pos * copynumr = new pos[nummatches + 1]; // num frum ref file
-
-		for (unsigned i = 0; i < nummatches; ++i) {
-
-		  copyloc1[i] = read_varint(patchfile);
-		  copynump[i] = read_varint(patchfile);
-		  copynumr[i] = read_varint(patchfile);
-
-			size2 -= copynump[i] + copynumr[i];
-		}
-		if (size2) {
-			copyloc1[nummatches] = 0; copynumr[nummatches] = 0;
-			copynump[nummatches] = size2;
-			++nummatches;
-		}
-
-		FILE *ref = fopen(argv[1], "rb");
 		FILE *outfile = fopen(argv[2], "wb");
 
 		for (unsigned i = 0; i < nummatches; ++i) {
-			if (!copy_bytes_to_file(patchfile, outfile, copynump[i])) {
-				printf("Error.  patchfile is truncated\n");
-				return -1;
-			}
 
-			pos copyloc = copyloc1[i];
-			fseeko(ref, copyloc, SEEK_CUR);
+		  pos nump = read_varuint(patchfile);
+		  if (!copy_bytes_to_file(patchfile, outfile, nump)) {
+		    printf("Error.  patchfile is truncated\n");
+		    return -1;
+		  }
+		  fseeko(ref, read_varint(patchfile), SEEK_CUR);
+		  pos numr = read_varuint(patchfile);
 
-			if (!copy_bytes_to_file(ref, outfile, copynumr[i])) {
-			  printf("Error while copying from reference file (ofs %ld, %u bytes)\n", ftello(ref), copynumr[i]);
-			  return -1;
-			}
+		  if (!copy_bytes_to_file(ref, outfile, numr)) {
+		    printf("Error while copying from reference file (ofs %ld, %u bytes)\n", ftello(ref), numr);
+		    return -1;
+		  }
+		  size2 -= nump + numr;
 		}
-
-		delete [] copynumr;
-		delete [] copynump;
-		delete [] copyloc1;
+		if (size2) {
+		  pos nump = read_varuint(patchfile);
+		  if (!copy_bytes_to_file(patchfile, outfile, nump)) {
+		    printf("Error.  patchfile is truncated\n");
+		    return -1;
+		  }
+		  ++nummatches;
+		}
 
 	} catch (const char * desc){
 		fprintf (stderr, "FATAL: %s\n", desc);

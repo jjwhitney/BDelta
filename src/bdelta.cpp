@@ -30,6 +30,24 @@ const void *m_read(void *f, void * buf, pos place, pos num) {
 	return (const char*)f + place;
 }
 
+static bool all_ram_mode = false;
+
+pos copy_n(FILE *fout, void* fin, pos num, pos fp) {
+  while (num > 0) {
+    unsigned towrite = (num > 4096) ? 4096 : num;
+    unsigned char buf[4096];
+    const void * b;
+    if (all_ram_mode)
+      b = m_read(fin, buf, fp, towrite);
+    else
+      b = f_read(fin, buf, fp, towrite);
+    fwrite_fixed(fout, b, towrite);
+    num -= towrite;
+    fp += towrite;
+  }
+  return fp;
+}
+
 void my_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned flags) {
 	bdelta_pass(b, blocksize, minMatchSize, 0L, flags);
 	bdelta_clean_matches(b, BDELTA_REMOVE_OVERLAP);
@@ -37,7 +55,6 @@ void my_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsi
 
 int main(int argc, char **argv) {
 	try {
-		bool all_ram_mode = false;
 		char * m1 = NULL;
 		char * m2 = NULL;
 
@@ -103,10 +120,6 @@ int main(int argc, char **argv) {
 
 		nummatches = bdelta_numMatches(b);
 
-		pos * copyloc1 = new pos[nummatches + 1]; // location in ref file
-		pos * copynump = new pos[nummatches + 1]; // number to copy from patch file
-		pos * copynumr = new pos[nummatches + 1]; // number to copy from ref file
-
 		FILE *fout = fopen(argv[3], "wb");
 		if (!fout) {
 			printf("couldn't open output file\n");
@@ -116,57 +129,31 @@ int main(int argc, char **argv) {
 		const char *magic = "BDT";
 		fwrite_fixed(fout, magic, 3);
 		unsigned short version = 3;
-		write_varint(fout, version);
-		write_varint(fout, size);
-		write_varint(fout, size2);
-		write_varint(fout, nummatches);
+		write_varuint(fout, version);
+		write_varuint(fout, size);
+		write_varuint(fout, size2);
+		write_varuint(fout, nummatches);
 
-		pos lastp1 = 0,
-		  lastp2 = 0;
+		pos lastp1 = 0, lastp2 = 0, fp = 0;
 		for (int i = 0; i < nummatches; ++i) {
-			pos p1, p2, num;
-			bdelta_getMatch(b, i, &p1, &p2, &num);
+			pos p1, p2, numr;
+			bdelta_getMatch(b, i, &p1, &p2, &numr);
 			// printf("%*x, %*x, %*x, %*x\n", 10, p1, 10, p2, 10, num, 10, p2-lastp2);
-			copyloc1[i] = p1 - lastp1;
-			copynump[i] = p2 - lastp2;
-			copynumr[i] = num;
-			write_varint(fout, copyloc1[i]);
-			write_varint(fout, copynump[i]);
-			write_varint(fout, copynumr[i]);
+			pos loc1 = p1 - lastp1;
+			pos nump = p2 - lastp2;
+			write_varuint(fout, nump);
+			fp = copy_n(fout, all_ram_mode ? (void*)m2 : (void*)f2, nump, fp);
+			write_varint(fout, loc1);
+			write_varuint(fout, numr);
+			fp += numr;
 
-			lastp1 = p1 + num;
-			lastp2 = p2 + num;
+			lastp1 = p1 + numr;
+			lastp2 = p2 + numr;
 		}
 		if (size2 != lastp2) {
-			copyloc1[nummatches] = 0; copynumr[nummatches] = 0;
-			copynump[nummatches] = size2 - lastp2;
-			++nummatches;
-		}
-
-// write_unsigned_list(adds, nummatches+1, fout);
-// write_unsigned_list(copynumr, nummatches, fout);
-// write_signed_list(copyloc, nummatches, fout);
-
-//  fwrite(copyloc1, 4, nummatches, fout);
-//  fwrite(copynump, 4, nummatches, fout);
-//  fwrite(copynumr, 4, nummatches, fout);
-		pos fp = 0;
-		for (int i = 0; i < nummatches; ++i) {
-			pos num = copynump[i];
-			while (num > 0) {
-				unsigned towrite = (num > 4096) ? 4096 : num;
-				unsigned char buf[4096];
-				const void * b;
-				if (all_ram_mode)
-					b = m_read(m2, buf, fp, towrite);
-				else
-					b = f_read(f2, buf, fp, towrite);
-				fwrite_fixed(fout, b, towrite);
-				num -= towrite;
-				fp += towrite;
-			}
-			// fp+=copynump[i];
-			if (i != nummatches) fp += copynumr[i];
+			pos nump = size2 - lastp2;
+			write_varuint(fout, nump);
+			fp = copy_n(fout, all_ram_mode ? (void*)m2 : (void*)f2, nump, fp);
 		}
  
 		fclose(fout);
@@ -178,11 +165,6 @@ int main(int argc, char **argv) {
 
 		fclose(f1);
 		fclose(f2);
-
-		delete [] copynumr;
-		delete [] copynump;
-		delete [] copyloc1;
-
 	} catch (const char * desc){
 		fprintf (stderr, "FATAL: %s\n", desc);
 		return -1;
