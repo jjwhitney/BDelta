@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
 			return 1;
 		}
 		unsigned short version = read_varint(patchfile);
-		if (version != 1 && version != 2) {
+		if (version != 3) {
 			printf("unsupported patch version\n");
 			return 1;
 		}

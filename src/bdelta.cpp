@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
 
 		const char *magic = "BDT";
 		fwrite_fixed(fout, magic, 3);
-		unsigned short version = 2;
+		unsigned short version = 3;
 		write_varint(fout, version);
 		write_varint(fout, size);
 		write_varint(fout, size2);
