@@ -48,12 +48,6 @@ int main(int argc, char **argv) {
 			printf("unsupported patch version\n");
 			return 1;
 		}
-		char intsize;
-		fread_fixed(patchfile, &intsize, 1);
-		if (intsize != 4) {
-			printf("unsupported file pointer size\n");
-			return 1;
-		}
 		pos size1 = read_varint(patchfile),
 		    size2 = read_varint(patchfile);
 
@@ -87,7 +81,7 @@ int main(int argc, char **argv) {
 			}
 
 			pos copyloc = copyloc1[i];
-			fseek(ref, copyloc, SEEK_CUR);
+			fseeko(ref, copyloc, SEEK_CUR);
 
 			pos curofs=ftello(ref);
 

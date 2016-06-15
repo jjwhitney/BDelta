@@ -11,7 +11,7 @@
 #include "compatibility.h"
 
 const void *f_read(void *f, void *buf, pos place, pos num) {
-	fseek((FILE *)f, place, SEEK_SET);
+	fseeko((FILE *)f, place, SEEK_SET);
 	fread_fixed((FILE *)f, buf, num);
 	return buf;
 }
@@ -117,8 +117,6 @@ int main(int argc, char **argv) {
 		fwrite_fixed(fout, magic, 3);
 		unsigned short version = 2;
 		write_varint(fout, version);
-		unsigned char intsize = 4;
-		fwrite_fixed(fout, &intsize, 1);
 		write_varint(fout, size);
 		write_varint(fout, size2);
 		write_varint(fout, nummatches);
