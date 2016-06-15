@@ -10,43 +10,39 @@
 #define MAX_IO_BLOCK_SIZE (1024 * 1024)
 
 void fread_fixed(FILE *f, void * _buf, unsigned num_bytes) {
-	char * buf = (char *)_buf;
+  char * buf = (char *)_buf;
 
-	while (num_bytes != 0)
-	{
-		unsigned block_size = num_bytes;
-		if (block_size > MAX_IO_BLOCK_SIZE) block_size = MAX_IO_BLOCK_SIZE;
-
-		size_t r = fread(buf, 1, block_size, f);
-		if (r != block_size)
-		{
-			static char read_error_message[128];
-			sprintf (read_error_message, "read error: fread_fixed(block_size=%u) != %u", block_size, (unsigned)r);
-			throw read_error_message;
-		}
-		buf       += block_size;
-		num_bytes -= block_size;
-	}
+  while (num_bytes != 0) {
+    unsigned block_size = num_bytes;
+    if (block_size > MAX_IO_BLOCK_SIZE) block_size = MAX_IO_BLOCK_SIZE;
+    
+    size_t r = fread(buf, 1, block_size, f);
+    if (r != block_size) {
+      static char read_error_message[128];
+      sprintf (read_error_message, "read error: fread_fixed(block_size=%u) != %u", block_size, (unsigned)r);
+      throw read_error_message;
+    }
+    buf       += block_size;
+    num_bytes -= block_size;
+  }
 }
 
 void fwrite_fixed(FILE *f, const void * _buf, unsigned num_bytes) {
-	const char * buf = (const char *)_buf;
+  const char * buf = (const char *)_buf;
 
-	while (num_bytes != 0)
-	{
-		unsigned block_size = num_bytes;
-		if (block_size > MAX_IO_BLOCK_SIZE) block_size = MAX_IO_BLOCK_SIZE;
-
-		size_t r = fwrite(buf, 1, block_size, f);
-		if (r != block_size)
-		{
-			static char write_error_message[128];
-			sprintf (write_error_message, "write error: fwrite_fixed(num_bytes=%u) != %u", block_size, (unsigned)r);
-			throw write_error_message;
-		}
-		buf       += block_size;
-		num_bytes -= block_size;
-	}
+  while (num_bytes != 0) {
+    unsigned block_size = num_bytes;
+    if (block_size > MAX_IO_BLOCK_SIZE) block_size = MAX_IO_BLOCK_SIZE;
+    
+    size_t r = fwrite(buf, 1, block_size, f);
+    if (r != block_size) {
+      static char write_error_message[128];
+      sprintf (write_error_message, "write error: fwrite_fixed(num_bytes=%u) != %u", block_size, (unsigned)r);
+      throw write_error_message;
+    }
+    buf       += block_size;
+    num_bytes -= block_size;
+  }
 }
 
 static size_t scan_varint(const char* in,size_t len, uint64_t* n) {
@@ -133,10 +129,10 @@ void write_varuint(FILE* f, uint64_t number) {
 }
 
 bool fileExists(char *fname) {
-	FILE *f = fopen(fname, "rb");
-	bool exists = (f != NULL);
-	if (exists) fclose(f);
-	return exists;
+  FILE *f = fopen(fname, "rb");
+  bool exists = (f != NULL);
+  if (exists) fclose(f);
+  return exists;
 }
 
 int64_t getLenOfFile(char *fname) {

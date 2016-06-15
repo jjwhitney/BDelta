@@ -10,38 +10,14 @@
 #include "file.h"
 #include "compatibility.h"
 
-const void *f_read(void *f, void *buf, pos place, pos num) {
-	fseeko((FILE *)f, place, SEEK_SET);
-	fread_fixed((FILE *)f, buf, num);
-	return buf;
-}
-
 const void *m_read(void *f, void * buf, pos place, pos num) {
-	if (0) {
-		/*
-		 * BDelta uses only returned pointer
-		 * and does not modify it's contents.
-		 *
-		 * But bugs happen.
-		 */
-		memcpy (buf, (char*)f + place, num);
-		return buf;
-	}
 	return (const char*)f + place;
 }
 
-static bool all_ram_mode = false;
-
 pos copy_n(FILE *fout, void* fin, pos num, pos fp) {
   while (num > 0) {
-    unsigned towrite = (num > 4096) ? 4096 : num;
-    unsigned char buf[4096];
-    const void * b;
-    if (all_ram_mode)
-      b = m_read(fin, buf, fp, towrite);
-    else
-      b = f_read(fin, buf, fp, towrite);
-    fwrite_fixed(fout, b, towrite);
+    unsigned towrite = (num > 1073741824) ? 1073741824 : num;
+    fwrite_fixed(fout, (char*)fin+fp, towrite);
     num -= towrite;
     fp += towrite;
   }
@@ -58,14 +34,8 @@ int main(int argc, char **argv) {
 		char * m1 = NULL;
 		char * m2 = NULL;
 
-		if (argc > 1 && strcmp(argv[1], "--all-in-ram") == 0)
-		{
-			all_ram_mode = true;
-			--argc;
-			++argv;
-		}
 		if (argc != 4) {
-			printf("usage: bdelta [--all-in-ram] <oldfile> <newfile> <patchfile>\n");
+			printf("usage: bdelta <oldfile> <newfile> <patchfile>\n");
 			printf("needs two files to compare + output file:\n");
 			exit(1);
 		}
@@ -80,19 +50,13 @@ int main(int argc, char **argv) {
 		
 		BDelta_Instance *b;
 
-		if (all_ram_mode)
-		{
-			m1 = new char[size];
-			m2 = new char[size2];
-			fread_fixed(f1, m1, size);
-			fread_fixed(f2, m2, size2);
+		m1 = new char[size];
+		m2 = new char[size2];
+		fread_fixed(f1, m1, size);
+		fread_fixed(f2, m2, size2);
+		
+		b = bdelta_init_alg(size, size2, m1, m2);
 
-			b = bdelta_init_alg(size, size2, m_read, m1, m2);
-		}
-		else
-		{
-			b = bdelta_init_alg(size, size2, f_read, f1, f2);
-		}
 		int nummatches;
 
 		// List of primes for reference. Taken from Wikipedia.
@@ -142,7 +106,7 @@ int main(int argc, char **argv) {
 			pos loc1 = p1 - lastp1;
 			pos nump = p2 - lastp2;
 			write_varuint(fout, nump);
-			fp = copy_n(fout, all_ram_mode ? (void*)m2 : (void*)f2, nump, fp);
+			fp = copy_n(fout, m2, nump, fp);
 			write_varint(fout, loc1);
 			write_varuint(fout, numr);
 			fp += numr;
@@ -153,7 +117,7 @@ int main(int argc, char **argv) {
 		if (size2 != lastp2) {
 			pos nump = size2 - lastp2;
 			write_varuint(fout, nump);
-			fp = copy_n(fout, all_ram_mode ? (void*)m2 : (void*)f2, nump, fp);
+			fp = copy_n(fout, m2, nump, fp);
 		}
  
 		fclose(fout);

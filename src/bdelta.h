@@ -9,14 +9,9 @@ extern "C" {
 typedef struct _BDelta_Instance BDelta_Instance;
 
 typedef int64_t pos;
-  
-// Callback function must return a pointer to the data requested.
-// A "fill and forget" buffer is provided, but can be ignored, so
-// long as the data persists throughout the life of bdelta_pass().
-typedef const void *(*bdelta_readCallback)(void *handle, void *buf, pos place, pos num);
 
 BDelta_Instance *bdelta_init_alg(pos data1_size, pos data2_size,
-		bdelta_readCallback cb, void *handle1, void *handle2);
+				 void *handle1, void *handle2);
 void bdelta_done_alg(BDelta_Instance *b);
 
 void bdelta_pass(BDelta_Instance *b, unsigned blockSize, unsigned minMatchSize, pos maxHoleSize, unsigned flags);

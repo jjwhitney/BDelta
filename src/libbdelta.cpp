@@ -35,18 +35,19 @@ struct Match {
 };
 
 struct _BDelta_Instance {
-	bdelta_readCallback cb;
-	void *handle1, *handle2;
-	pos data1_size, data2_size;
-	std::list<Match> matches;
-	std::list<Match>::iterator accessplace;
-	int access_int;
-	int errorcode;
-
-	const Token *read1(void *buf, pos place, pos num)
-		{return (const Token*)cb(handle1, buf, place, num);}
-	const Token *read2(void *buf, pos place, pos num)
-		{return (const Token*)cb(handle2, buf, place, num);}
+  void *handle1, *handle2;
+  pos data1_size, data2_size;
+  std::list<Match> matches;
+  std::list<Match>::iterator accessplace;
+  int access_int;
+  int errorcode;
+  
+  const Token *read1(pos place) {
+    return (const Token*)((Token*)handle1+place);
+  }
+  const Token *read2(pos place) {
+    return (const Token*)((Token*)handle2+place);
+  }
 };
 
 struct Checksums_Instance {
@@ -83,9 +84,8 @@ pos match_forward(BDelta_Instance *b, pos p1, pos p2) {
 	do {
 		numtoread = std::min(b->data1_size - p1, b->data2_size - p2);
 		if (numtoread > 4096) numtoread = 4096;
-		Token buf1[4096], buf2[4096];
-		const Token *read1 = b->read1(buf1, p1, numtoread),
-		            *read2 = b->read2(buf2, p2, numtoread);
+		const Token *read1 = b->read1(p1),
+		            *read2 = b->read2(p2);
 		p1 += numtoread; p2 += numtoread;
 		match = match_buf_forward(read1, read2, numtoread);
 		num += match;
@@ -100,9 +100,8 @@ pos match_backward(BDelta_Instance *b, pos p1, pos p2, pos blocksize) {
 		if (numtoread > blocksize) numtoread = blocksize;
 		if (numtoread > 4096) numtoread = 4096;
 		p1 -= numtoread; p2 -= numtoread;
-		Token buf1[4096], buf2[4096];
-		const Token *read1 = b->read1(buf1, p1, numtoread),
-		            *read2 = b->read2(buf2, p2, numtoread);
+		const Token *read1 = b->read1(p1),
+		            *read2 = b->read2(p2);
 		match = match_buf_backward(read1, read2, numtoread);
 		num += match;
 	} while (match && match == numtoread);
@@ -158,12 +157,10 @@ T absoluteDifference(T a, T b) {
 
 void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSize, pos start, pos end, pos place, std::list<Match>::iterator iterPlace) {
 	const unsigned blocksize = h->blocksize;
-	STACK_ALLOC(buf1, Token, blocksize);
-	STACK_ALLOC(buf2, Token, blocksize);
 
 	pos best1, best2, bestnum = 0;
 	pos processMatchesPos;
-	const Token *inbuf = b->read2(buf1, start, blocksize),
+	const Token *inbuf = b->read2(start),
 	            *outbuf;
 	Hash hash = Hash(inbuf, blocksize);
 	pos buf_loc = blocksize;
@@ -212,7 +209,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSiz
 				else {
 					// Fast forward over matched area.
 					j = matchEnd - blocksize;
-					inbuf = b->read2(buf1, j, blocksize);
+					inbuf = b->read2(j);
 					hash = Hash(inbuf, blocksize);
 					buf_loc = blocksize;
 					j += blocksize;
@@ -224,7 +221,7 @@ void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSiz
 		if (buf_loc == blocksize) {
 			buf_loc = 0;
 			std::swap(inbuf, outbuf);
-			inbuf = b->read2(outbuf == buf1 ? buf2 : buf1, j, std::min(end - j, (pos)blocksize));
+			inbuf = b->read2(j);
 		}
 
 		if (j >= end)
@@ -251,12 +248,11 @@ struct Checksums_Compare {
 };
 
 BDelta_Instance *bdelta_init_alg(pos data1_size, pos data2_size,
-		bdelta_readCallback cb, void *handle1, void *handle2) {
+				 void *handle1, void *handle2) {
 	BDelta_Instance *b = new BDelta_Instance;
 	if (!b) return 0;
 	b->data1_size = data1_size;
 	b->data2_size = data2_size;
-	b->cb = cb;
 	b->handle1 = handle1;
 	b->handle2 = handle2;
 	b->access_int = -1;
@@ -299,7 +295,7 @@ void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize
 	for (unsigned i = 0; i < numunused; ++i) {
 		pos first = unused[i].p, last = unused[i].p + unused[i].num;
 		for (pos loc = first; loc + blocksize <= last; loc += blocksize) {
-			const Token *read = b->read1(buf, loc, blocksize);
+			const Token *read = b->read1(loc);
 			Hash::Value blocksum = Hash(read, blocksize).getValue();
 			// Adjacent checksums are never repeated.
 			//if (! h.numchecksums || blocksum != h.checksums[h.numchecksums - 1].cksum)
