@@ -10,15 +10,13 @@
 #include "file.h"
 #include "compatibility.h"
 
-#define FEFE
-
-const void *f_read(void *f, void *buf, unsigned place, unsigned num) {
+const void *f_read(void *f, void *buf, pos place, pos num) {
 	fseek((FILE *)f, place, SEEK_SET);
 	fread_fixed((FILE *)f, buf, num);
 	return buf;
 }
 
-const void *m_read(void *f, void * buf, unsigned place, unsigned num) {
+const void *m_read(void *f, void * buf, pos place, pos num) {
 	if (0) {
 		/*
 		 * BDelta uses only returned pointer
@@ -33,7 +31,7 @@ const void *m_read(void *f, void * buf, unsigned place, unsigned num) {
 }
 
 void my_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned flags) {
-	bdelta_pass(b, blocksize, minMatchSize, 0, flags);
+	bdelta_pass(b, blocksize, minMatchSize, 0L, flags);
 	bdelta_clean_matches(b, BDELTA_REMOVE_OVERLAP);
 }
 
@@ -58,8 +56,8 @@ int main(int argc, char **argv) {
 			printf("one of the input files does not exist\n");
 			exit(1);
 		}
-		unsigned size = getLenOfFile(argv[1]);
-		unsigned size2 = getLenOfFile(argv[2]);
+		pos size = getLenOfFile(argv[1]);
+		pos size2 = getLenOfFile(argv[2]);
 		FILE *f1 = fopen(argv[1], "rb"),
 		     *f2 = fopen(argv[2], "rb");
 		
@@ -72,11 +70,11 @@ int main(int argc, char **argv) {
 			fread_fixed(f1, m1, size);
 			fread_fixed(f2, m2, size2);
 
-			b = bdelta_init_alg(size, size2, m_read, m1, m2, 1);
+			b = bdelta_init_alg(size, size2, m_read, m1, m2);
 		}
 		else
 		{
-			b = bdelta_init_alg(size, size2, f_read, f1, f2, 1);
+			b = bdelta_init_alg(size, size2, f_read, f1, f2);
 		}
 		int nummatches;
 
@@ -105,15 +103,9 @@ int main(int argc, char **argv) {
 
 		nummatches = bdelta_numMatches(b);
 
-#ifdef FEFE
-		long long * copyloc1 = new long long[nummatches + 1];
-		long long * copyloc2 = new long long[nummatches + 1];
-		unsigned *  copynum = new unsigned[nummatches + 1];
-#else
-		unsigned * copyloc1 = new unsigned[nummatches + 1];
-		unsigned * copyloc2 = new unsigned[nummatches + 1];
-		unsigned *  copynum = new unsigned[nummatches + 1];
-#endif
+		pos * copyloc1 = new pos[nummatches + 1];
+		pos * copyloc2 = new pos[nummatches + 1];
+		pos *  copynum = new pos[nummatches + 1];
 
 		FILE *fout = fopen(argv[3], "wb");
 		if (!fout) {
@@ -124,35 +116,26 @@ int main(int argc, char **argv) {
 		const char *magic = "BDT";
 		fwrite_fixed(fout, magic, 3);
 		unsigned short version = 2;
-		write_word(fout, version);
+		write_varint(fout, version);
 		unsigned char intsize = 4;
 		fwrite_fixed(fout, &intsize, 1);
-		write_dword(fout, size);
-		write_dword(fout, size2);
-		write_dword(fout, nummatches);
+		write_varint(fout, size);
+		write_varint(fout, size2);
+		write_varint(fout, nummatches);
 
-		unsigned lastp1 = 0,
-			lastp2 = 0;
+		pos lastp1 = 0,
+		  lastp2 = 0;
 		for (int i = 0; i < nummatches; ++i) {
-			unsigned p1, p2, num;
+			pos p1, p2, num;
 			bdelta_getMatch(b, i, &p1, &p2, &num);
 			// printf("%*x, %*x, %*x, %*x\n", 10, p1, 10, p2, 10, num, 10, p2-lastp2);
-#ifdef FEFE
-			copyloc1[i] = (long long)p1 - lastp1;
-			copyloc2[i] = (long long)p2 - lastp2;
+			copyloc1[i] = p1 - lastp1;
+			copyloc2[i] = p2 - lastp2;
 			copynum[i] = num;
 			write_varint(fout, copyloc1[i]);
 			write_varint(fout, copyloc2[i]);
 			write_varint(fout, copynum[i]);
-//			printf("%u/%u: (%ld -> %u,%ld -> %u,%u)\n",i,nummatches,copyloc1[i],p1,copyloc2[i],p2,copynum[i]);
-#else
-			copyloc1[i] = p1 - lastp1;
-			write_dword(fout, copyloc1[i]);
-			copyloc2[i] = p2 - lastp2;
-			write_dword(fout, copyloc2[i]);
-			copynum[i] = num;
-			write_dword(fout, copynum[i]);
-#endif
+
 			lastp1 = p1 + num;
 			lastp2 = p2 + num;
 		}
@@ -169,9 +152,9 @@ int main(int argc, char **argv) {
 //  fwrite(copyloc1, 4, nummatches, fout);
 //  fwrite(copyloc2, 4, nummatches, fout);
 //  fwrite(copynum, 4, nummatches, fout);
-		unsigned fp = 0;
+		pos fp = 0;
 		for (int i = 0; i < nummatches; ++i) {
-			unsigned num = copyloc2[i];
+			pos num = copyloc2[i];
 			while (num > 0) {
 				unsigned towrite = (num > 4096) ? 4096 : num;
 				unsigned char buf[4096];
