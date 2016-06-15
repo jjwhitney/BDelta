@@ -53,21 +53,21 @@ int main(int argc, char **argv) {
 
 		unsigned nummatches = read_varint(patchfile);
 
-		pos * copyloc1 = new pos[nummatches + 1];
-		pos * copyloc2 = new pos[nummatches + 1];
-		pos *  copynum = new pos[nummatches + 1];
+		pos * copyloc1 = new pos[nummatches + 1]; // locations in ref file
+		pos * copynump = new pos[nummatches + 1]; // num from patch file
+		pos * copynumr = new pos[nummatches + 1]; // num frum ref file
 
 		for (unsigned i = 0; i < nummatches; ++i) {
 
 		  copyloc1[i] = read_varint(patchfile);
-		  copyloc2[i] = read_varint(patchfile);
-		  copynum[i] = read_varint(patchfile);
+		  copynump[i] = read_varint(patchfile);
+		  copynumr[i] = read_varint(patchfile);
 
-			size2 -= copyloc2[i] + copynum[i];
+			size2 -= copynump[i] + copynumr[i];
 		}
 		if (size2) {
-			copyloc1[nummatches] = 0; copynum[nummatches] = 0;
-			copyloc2[nummatches] = size2;
+			copyloc1[nummatches] = 0; copynumr[nummatches] = 0;
+			copynump[nummatches] = size2;
 			++nummatches;
 		}
 
@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
 		FILE *outfile = fopen(argv[2], "wb");
 
 		for (unsigned i = 0; i < nummatches; ++i) {
-			if (!copy_bytes_to_file(patchfile, outfile, copyloc2[i])) {
+			if (!copy_bytes_to_file(patchfile, outfile, copynump[i])) {
 				printf("Error.  patchfile is truncated\n");
 				return -1;
 			}
@@ -83,16 +83,14 @@ int main(int argc, char **argv) {
 			pos copyloc = copyloc1[i];
 			fseeko(ref, copyloc, SEEK_CUR);
 
-			pos curofs=ftello(ref);
-
-			if (!copy_bytes_to_file(ref, outfile, copynum[i])) {
-				printf("Error while copying from reference file (ofs %ld, %u bytes)\n", curofs, copynum[i]);
-				return -1;
+			if (!copy_bytes_to_file(ref, outfile, copynumr[i])) {
+			  printf("Error while copying from reference file (ofs %ld, %u bytes)\n", ftello(ref), copynumr[i]);
+			  return -1;
 			}
 		}
 
-		delete [] copynum;
-		delete [] copyloc2;
+		delete [] copynumr;
+		delete [] copynump;
 		delete [] copyloc1;
 
 	} catch (const char * desc){

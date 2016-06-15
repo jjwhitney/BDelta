@@ -103,9 +103,9 @@ int main(int argc, char **argv) {
 
 		nummatches = bdelta_numMatches(b);
 
-		pos * copyloc1 = new pos[nummatches + 1];
-		pos * copyloc2 = new pos[nummatches + 1];
-		pos *  copynum = new pos[nummatches + 1];
+		pos * copyloc1 = new pos[nummatches + 1]; // location in ref file
+		pos * copynump = new pos[nummatches + 1]; // number to copy from patch file
+		pos * copynumr = new pos[nummatches + 1]; // number to copy from ref file
 
 		FILE *fout = fopen(argv[3], "wb");
 		if (!fout) {
@@ -128,31 +128,31 @@ int main(int argc, char **argv) {
 			bdelta_getMatch(b, i, &p1, &p2, &num);
 			// printf("%*x, %*x, %*x, %*x\n", 10, p1, 10, p2, 10, num, 10, p2-lastp2);
 			copyloc1[i] = p1 - lastp1;
-			copyloc2[i] = p2 - lastp2;
-			copynum[i] = num;
+			copynump[i] = p2 - lastp2;
+			copynumr[i] = num;
 			write_varint(fout, copyloc1[i]);
-			write_varint(fout, copyloc2[i]);
-			write_varint(fout, copynum[i]);
+			write_varint(fout, copynump[i]);
+			write_varint(fout, copynumr[i]);
 
 			lastp1 = p1 + num;
 			lastp2 = p2 + num;
 		}
 		if (size2 != lastp2) {
-			copyloc1[nummatches] = 0; copynum[nummatches] = 0;
-			copyloc2[nummatches] = size2 - lastp2;
+			copyloc1[nummatches] = 0; copynumr[nummatches] = 0;
+			copynump[nummatches] = size2 - lastp2;
 			++nummatches;
 		}
 
 // write_unsigned_list(adds, nummatches+1, fout);
-// write_unsigned_list(copynum, nummatches, fout);
+// write_unsigned_list(copynumr, nummatches, fout);
 // write_signed_list(copyloc, nummatches, fout);
 
 //  fwrite(copyloc1, 4, nummatches, fout);
-//  fwrite(copyloc2, 4, nummatches, fout);
-//  fwrite(copynum, 4, nummatches, fout);
+//  fwrite(copynump, 4, nummatches, fout);
+//  fwrite(copynumr, 4, nummatches, fout);
 		pos fp = 0;
 		for (int i = 0; i < nummatches; ++i) {
-			pos num = copyloc2[i];
+			pos num = copynump[i];
 			while (num > 0) {
 				unsigned towrite = (num > 4096) ? 4096 : num;
 				unsigned char buf[4096];
@@ -165,8 +165,8 @@ int main(int argc, char **argv) {
 				num -= towrite;
 				fp += towrite;
 			}
-			// fp+=copyloc2[i];
-			if (i != nummatches) fp += copynum[i];
+			// fp+=copynump[i];
+			if (i != nummatches) fp += copynumr[i];
 		}
  
 		fclose(fout);
@@ -179,8 +179,8 @@ int main(int argc, char **argv) {
 		fclose(f1);
 		fclose(f2);
 
-		delete [] copynum;
-		delete [] copyloc2;
+		delete [] copynumr;
+		delete [] copynump;
 		delete [] copyloc1;
 
 	} catch (const char * desc){
