@@ -126,7 +126,7 @@ static size_t fmt_varint(char* dest,unsigned long long l) {
 }
 
 static size_t fmt_pb_type0_sint(char* dest,signed long long l) {
-  return fmt_varint(dest,(l << 1) ^ (l >> (sizeof(l)*8-1)));
+  return fmt_varint(dest,(l << 1) ^ (-(l < 0)));
 }
 
 void write_varint(FILE* f, long long number) {
