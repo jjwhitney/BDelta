@@ -6,4 +6,4 @@ RELEASE-VERSION
 src/bdelta
 src/bpatch
 src/bdelta.c
-
+src/libbdelta.so
