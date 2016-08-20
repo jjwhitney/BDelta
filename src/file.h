@@ -70,19 +70,22 @@ uint64_t scan_varint(const char* in) {
 	return 0;
 }
 
-int64_t scan_pb_type0_sint(const char* in) {
-	uint64_t m = scan_varint(in);
+int64_t decode_varint_zigzag(uint64_t m) {
 	return (-(m&1)) ^ (m>>1);
 }
 
-int64_t read_varint(FILE* f) {
+uint64_t read_varint_u(FILE* f) {
 	char buf[10];
 	for (size_t i = 0; i < sizeof(buf); ++i) {
 		fread_fixed(f, buf+i, 1);
 		if (!(buf[i] & 0x80))
-			return scan_pb_type0_sint(buf);
+			return scan_varint(buf);
 	}
-	throw "parse error: read_varint() failed";
+	throw "parse error: read_varint_s() failed";
+}
+
+int64_t read_varint_s(FILE* f) {
+	return decode_varint_zigzag(read_varint_u(f));
 }
 
 void write_word(FILE *f, unsigned number) {
@@ -116,13 +119,17 @@ int fmt_varint(char* dest, uint64_t l) {
 	return i + 1;
 }
 
-int fmt_pb_type0_sint(char* dest, int64_t l) {
-	return fmt_varint(dest, (l << 1) ^ (-(l < 0)));
+uint64_t encode_varint_zigzag(int64_t l) {
+	return (l << 1) ^ (-(l < 0));
 }
 
-void write_varint(FILE* f, int64_t number) {
+void write_varint_u(FILE* f, uint64_t number) {
 	char tmp[10];
-	fwrite_fixed(f, tmp, fmt_pb_type0_sint(tmp, number));
+	fwrite_fixed(f, tmp, fmt_varint(tmp, number));
+}
+
+void write_varint_s(FILE* f, int64_t number) {
+	write_varint_u(f, encode_varint_zigzag(number));
 }
 
 bool fileExists(char *fname) {

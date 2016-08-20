@@ -105,7 +105,7 @@ int main(int argc, char **argv) {
 
 		int64_t * copyloc1 = new int64_t[nummatches + 1];
 		int64_t * copyloc2 = new int64_t[nummatches + 1];
-		int64_t *  copynum = new int64_t[nummatches + 1];
+		uint64_t *  copynum = new uint64_t[nummatches + 1];
 
 		FILE *fout = fopen(argv[3], "wb");
 		if (!fout) {
@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
 
 		const char *magic = "BDT";
 		fwrite_fixed(fout, magic, 3);
-		unsigned short version = 2;
+		unsigned short version = 3;
 		write_word(fout, version);
 		unsigned char intsize = 4;
 		fwrite_fixed(fout, &intsize, 1);
@@ -132,9 +132,9 @@ int main(int argc, char **argv) {
 			copyloc1[i] = (int64_t)p1 - lastp1;
 			copyloc2[i] = (int64_t)p2 - lastp2;
 			copynum[i] = num;
-			write_varint(fout, copyloc1[i]);
-			write_varint(fout, copyloc2[i]);
-			write_varint(fout, copynum[i]);
+			write_varint_s(fout, copyloc1[i]);
+			write_varint_s(fout, copyloc2[i]);
+			write_varint_u(fout, copynum[i]);
 			lastp1 = p1 + num;
 			lastp2 = p2 + num;
 		}

@@ -42,7 +42,7 @@ int main(int argc, char **argv) {
 			return 1;
 		}
 		unsigned short version = read_word(patchfile);
-		if (version != 1 && version != 2) {
+		if (version > 3) {
 			printf("unsupported patch version\n");
 			return 1;
 		}
@@ -59,13 +59,14 @@ int main(int argc, char **argv) {
 
 		int64_t * copyloc1 = new int64_t[nummatches + 1];
 		int64_t * copyloc2 = new int64_t[nummatches + 1];
-		int64_t *  copynum = new int64_t[nummatches + 1];
+		uint64_t * copynum = new uint64_t[nummatches + 1];
 
 		for (unsigned i = 0; i < nummatches; ++i) {
-			if (version==2) {
-				copyloc1[i] = read_varint(patchfile);
-				copyloc2[i] = read_varint(patchfile);
-				copynum[i] = read_varint(patchfile);
+			if (version==2 || version==3) {
+				copyloc1[i] = read_varint_s(patchfile);
+				copyloc2[i] = read_varint_s(patchfile);
+				if (version == 3)
+					copynum[i] = read_varint_u(patchfile);
 			} else {
 				copyloc1[i] = read_dword(patchfile);
 				copyloc2[i] = read_dword(patchfile);
