@@ -10,45 +10,32 @@
 #include "file.h"
 #include "compatibility.h"
 
-const void *f_read(void *f, void *buf, unsigned place, unsigned num) {
-	fseek((FILE *)f, place, SEEK_SET);
-	fread_fixed((FILE *)f, buf, num);
-	return buf;
-}
-
-const void *m_read(void *f, void * buf, unsigned place, unsigned num) {
-	if (0) {
-		/*
-		 * BDelta uses only returned pointer
-		 * and does not modify it's contents.
-		 *
-		 * But bugs happen.
-		 */
-		memcpy (buf, (char*)f + place, num);
-		return buf;
-	}
+const void *m_read(void *f, void * buf, pos place, pos num) {
 	return (const char*)f + place;
 }
 
+pos copy_n(FILE *fout, void* fin, pos num, pos fp) {
+  while (num > 0) {
+    unsigned towrite = (num > 1073741824) ? 1073741824 : num;
+    fwrite_fixed(fout, (char*)fin+fp, towrite);
+    num -= towrite;
+    fp += towrite;
+  }
+  return fp;
+}
+
 void my_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned flags) {
-	bdelta_pass(b, blocksize, minMatchSize, 0, flags);
+	bdelta_pass(b, blocksize, minMatchSize, 0L, flags);
 	bdelta_clean_matches(b, BDELTA_REMOVE_OVERLAP);
 }
 
 int main(int argc, char **argv) {
 	try {
-		bool all_ram_mode = false;
 		char * m1 = NULL;
 		char * m2 = NULL;
 
-		if (argc > 1 && strcmp(argv[1], "--all-in-ram") == 0)
-		{
-			all_ram_mode = true;
-			--argc;
-			++argv;
-		}
 		if (argc != 4) {
-			printf("usage: bdelta [--all-in-ram] <oldfile> <newfile> <patchfile>\n");
+			printf("usage: bdelta <oldfile> <newfile> <patchfile>\n");
 			printf("needs two files to compare + output file:\n");
 			exit(1);
 		}
@@ -56,26 +43,20 @@ int main(int argc, char **argv) {
 			printf("one of the input files does not exist\n");
 			exit(1);
 		}
-		unsigned size = getLenOfFile(argv[1]);
-		unsigned size2 = getLenOfFile(argv[2]);
+		pos size = getLenOfFile(argv[1]);
+		pos size2 = getLenOfFile(argv[2]);
 		FILE *f1 = fopen(argv[1], "rb"),
 		     *f2 = fopen(argv[2], "rb");
 		
 		BDelta_Instance *b;
 
-		if (all_ram_mode)
-		{
-			m1 = new char[size];
-			m2 = new char[size2];
-			fread_fixed(f1, m1, size);
-			fread_fixed(f2, m2, size2);
+		m1 = new char[size];
+		m2 = new char[size2];
+		fread_fixed(f1, m1, size);
+		fread_fixed(f2, m2, size2);
+		
+		b = bdelta_init_alg(size, size2, m1, m2);
 
-			b = bdelta_init_alg(size, size2, m_read, m1, m2, 1);
-		}
-		else
-		{
-			b = bdelta_init_alg(size, size2, f_read, f1, f2, 1);
-		}
 		int nummatches;
 
 		// List of primes for reference. Taken from Wikipedia.
@@ -103,10 +84,6 @@ int main(int argc, char **argv) {
 
 		nummatches = bdelta_numMatches(b);
 
-		unsigned * copyloc1 = new unsigned[nummatches + 1];
-		unsigned * copyloc2 = new unsigned[nummatches + 1];
-		unsigned *  copynum = new unsigned[nummatches + 1];
-
 		FILE *fout = fopen(argv[3], "wb");
 		if (!fout) {
 			printf("couldn't open output file\n");
@@ -115,59 +92,32 @@ int main(int argc, char **argv) {
 
 		const char *magic = "BDT";
 		fwrite_fixed(fout, magic, 3);
-		unsigned short version = 1;
-		write_word(fout, version);
-		unsigned char intsize = 4;
-		fwrite_fixed(fout, &intsize, 1);
-		write_dword(fout, size);
-		write_dword(fout, size2);
-		write_dword(fout, nummatches);
+		unsigned short version = 3;
+		write_varuint(fout, version);
+		write_varuint(fout, size);
+		write_varuint(fout, size2);
+		write_varuint(fout, nummatches);
 
-		unsigned lastp1 = 0,
-			lastp2 = 0;
+		pos lastp1 = 0, lastp2 = 0, fp = 0;
 		for (int i = 0; i < nummatches; ++i) {
-			unsigned p1, p2, num;
-			bdelta_getMatch(b, i, &p1, &p2, &num);
+			pos p1, p2, numr;
+			bdelta_getMatch(b, i, &p1, &p2, &numr);
 			// printf("%*x, %*x, %*x, %*x\n", 10, p1, 10, p2, 10, num, 10, p2-lastp2);
-			copyloc1[i] = p1 - lastp1;
-			write_dword(fout, copyloc1[i]);
-			copyloc2[i] = p2 - lastp2;
-			write_dword(fout, copyloc2[i]);
-			copynum[i] = num;
-			write_dword(fout, copynum[i]);
-			lastp1 = p1 + num;
-			lastp2 = p2 + num;
+			pos loc1 = p1 - lastp1;
+			pos nump = p2 - lastp2;
+			write_varuint(fout, nump);
+			fp = copy_n(fout, m2, nump, fp);
+			write_varint(fout, loc1);
+			write_varuint(fout, numr);
+			fp += numr;
+
+			lastp1 = p1 + numr;
+			lastp2 = p2 + numr;
 		}
 		if (size2 != lastp2) {
-			copyloc1[nummatches] = 0; copynum[nummatches] = 0;
-			copyloc2[nummatches] = size2 - lastp2;
-			++nummatches;
-		}
-
-// write_unsigned_list(adds, nummatches+1, fout);
-// write_unsigned_list(copynum, nummatches, fout);
-// write_signed_list(copyloc, nummatches, fout);
-
-//  fwrite(copyloc1, 4, nummatches, fout);
-//  fwrite(copyloc2, 4, nummatches, fout);
-//  fwrite(copynum, 4, nummatches, fout);
-		unsigned fp = 0;
-		for (int i = 0; i < nummatches; ++i) {
-			unsigned num = copyloc2[i];
-			while (num > 0) {
-				unsigned towrite = (num > 4096) ? 4096 : num;
-				unsigned char buf[4096];
-				const void * b;
-				if (all_ram_mode)
-					b = m_read(m2, buf, fp, towrite);
-				else
-					b = f_read(f2, buf, fp, towrite);
-				fwrite_fixed(fout, b, towrite);
-				num -= towrite;
-				fp += towrite;
-			}
-			// fp+=copyloc2[i];
-			if (i != nummatches) fp += copynum[i];
+			pos nump = size2 - lastp2;
+			write_varuint(fout, nump);
+			fp = copy_n(fout, m2, nump, fp);
 		}
  
 		fclose(fout);
@@ -179,11 +129,6 @@ int main(int argc, char **argv) {
 
 		fclose(f1);
 		fclose(f2);
-
-		delete [] copynum;
-		delete [] copyloc2;
-		delete [] copyloc1;
-
 	} catch (const char * desc){
 		fprintf (stderr, "FATAL: %s\n", desc);
 		return -1;

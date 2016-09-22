@@ -49,18 +49,18 @@ See test/py_bindings.py for a usage example.
 Delta File Format
 =================
 
-The included delta creator / patch tool uses this simple binary format:
+The included delta creator / patch tool uses this simple binary
+format. All integers are written in protobuf format, either unsigned
+(upb) or zig-zag encoded signed (ipb).
 
 (All numbers are stored in little-endian format)
 char[3] magic "BDT"
-uint16 version (1, but will increment if this binary format changes)
-uint8 integer size (size, in bytes, of <uintXX> and <intXX> fields.)
-<uintXX> file 1 size
-<uintXX> file 2 size
-<uintXX> number of matches
+upb version (3, but will increment if this binary format changes)
+upb file 1 size
+upb file 2 size
+upb number of matches
 for each match {
-	<intXX> location in file 1 (relative to last match)
-	<intXX> location in file 2 (relative to last match)
-	<uintXX> match size
+    <upb n><string size <n>> insert string into file
+    <ipb seek>               seek in file 1
+    <upb m>		     copy m bytes from file 1
 }
-<Any data which is not matched is appended here, at the end of the patch>
