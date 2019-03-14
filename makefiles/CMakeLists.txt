@@ -13,22 +13,22 @@ ENDIF()
 
 set (COMMON_SOURCES
 
-    compatibility.h
-    checksum.h
-    file.h 
+    ../src/compatibility.h
+    ../src/checksum.h
+    ../src/file.h 
 )
 
 set (BDELTA_SOURCES  
     
     ${COMMON_SOURCES}    
-    bdelta.cpp
-    libbdelta.cpp
+    ../src/bdelta.cpp
+    ../src/libbdelta.cpp
 )
 
 set (BPATCH_SOURCES
 
     ${COMMON_SOURCES} 
-    bpatch.cpp
+    ../src/bpatch.cpp
 )
 
 IF(MSVC)
@@ -150,14 +150,15 @@ ENDIF()
 
 string(TIMESTAMP BUILD_YEAR "%Y")
 add_definitions(-DBUILD_YEAR="${BUILD_YEAR}")
+add_definitions(-DUSE_CXX17)
 
-add_executable (
+add_executable(
     bdelta
     
     ${BDELTA_SOURCES}
 )
 
-add_executable (
+add_executable(
     bpatch
     
     ${BPATCH_SOURCES}
