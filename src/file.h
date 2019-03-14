@@ -58,30 +58,30 @@ void fwrite_fixed(FILE *f, const void * _buf, unsigned num_bytes)
 
 unsigned read_word(FILE *f) 
 {
-	unsigned char b, b2;
-	fread_fixed(f, &b, 1);
-	fread_fixed(f, &b2, 1);
-	return (b2 << 8) + b;
+    unsigned char b, b2;
+    fread_fixed(f, &b, 1);
+    fread_fixed(f, &b2, 1);
+    return (b2 << 8) + b;
 }
 
 unsigned read_dword(FILE *f) 
 {
-	unsigned low = read_word(f);
-	return (read_word(f) << 16) + low;
+    unsigned low = read_word(f);
+    return (read_word(f) << 16) + low;
 }
 
 void write_word(FILE *f, unsigned number) 
 {
-	unsigned char b = number & 255,
-	              b2 = number >> 8;
-	fwrite_fixed(f, &b, 1);
-	fwrite_fixed(f, &b2, 1);
+    unsigned char b = number & 255,
+                  b2 = number >> 8;
+    fwrite_fixed(f, &b, 1);
+    fwrite_fixed(f, &b2, 1);
 }
 
 void write_dword(FILE *f, unsigned number) 
 {
-	write_word(f, number & 65535);
-	write_word(f, number >> 16);
+    write_word(f, number & 65535);
+    write_word(f, number >> 16);
 }
 
 #else
@@ -136,20 +136,20 @@ inline uint64_t getLenOfFile(const const T& fname)
     
 bool fileExists(const char * fname) 
 {
-	FILE *f = fopen(fname, "rb");
-	bool exists = (f != nullptr);
-	if (exists) 
+    FILE *f = fopen(fname, "rb");
+    bool exists = (f != nullptr);
+    if (exists) 
         fclose(f);
-	return exists;
+    return exists;
 }
 
 unsigned getLenOfFile(const char * fname) 
 {
-	FILE *f = fopen(fname, "rb");
-	fseek(f, 0, SEEK_END);
-	unsigned len = ftell(f);
-	fclose(f);
-	return len;
+    FILE *f = fopen(fname, "rb");
+    fseek(f, 0, SEEK_END);
+    unsigned len = ftell(f);
+    fclose(f);
+    return len;
 }
 
 #endif // USE_CXX17
