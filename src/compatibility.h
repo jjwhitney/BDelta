@@ -3,15 +3,11 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 // Fix for MSVC++, which doesn't support Variable Length Arrays.
-#ifdef _MSC_VER
-	#include <malloc.h>
-	#define STACK_ALLOC(name, type, num) type *name = (type *)alloca(sizeof(type) * num)
+#include <inttypes.h>
+#include <malloc.h>
 
-	typedef unsigned __int8 uint8_t;
-	typedef unsigned __int16 uint16_t;
-	typedef unsigned __int32 uint32_t;
-	typedef unsigned __int64 uint64_t;
+#ifdef _MSC_VER
+    #define STACK_ALLOC(name, type, num) type *name = (type *)alloca(sizeof(type) * num)
 #else
-	#include <stdint.h>
-	#define STACK_ALLOC(name, type, num) type name[num]
+    #define STACK_ALLOC(name, type, num) type name[num]
 #endif
