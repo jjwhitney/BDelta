@@ -2,6 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#ifndef __CHECKSUM_H__
+#define __CHECKSUM_H__
+ 
 struct Hash 
 {
     typedef uint64_t Value;
@@ -49,3 +52,4 @@ private:
     }
 };
 
+#endif // __CHECKSUM_H__

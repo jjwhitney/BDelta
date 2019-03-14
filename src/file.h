@@ -2,6 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#ifndef __FILE_H__
+#define __FILE_H__
+
 #include <inttypes.h>
 #ifdef USE_CXX17
 #include <filesystem>
@@ -153,3 +156,5 @@ unsigned getLenOfFile(const char * fname)
 }
 
 #endif // USE_CXX17
+
+#endif // __FILE_H__
