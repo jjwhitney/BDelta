@@ -14,8 +14,8 @@ typedef struct _BDelta_Instance BDelta_Instance;
 typedef const void *(*bdelta_readCallback)(void *handle, void *buf, unsigned place, unsigned num);
 
 BDelta_Instance *bdelta_init_alg(unsigned data1_size, unsigned data2_size,
-		bdelta_readCallback cb, void *handle1, void *handle2,
-		unsigned tokenSize);
+                                 bdelta_readCallback cb, void *handle1, void *handle2,
+                                 unsigned tokenSize);
 void bdelta_done_alg(BDelta_Instance *b);
 
 void bdelta_pass(BDelta_Instance *b, unsigned blockSize, unsigned minMatchSize, unsigned maxHoleSize, unsigned flags);
@@ -26,7 +26,7 @@ void bdelta_clean_matches(BDelta_Instance *b, unsigned flags);
 unsigned bdelta_numMatches(BDelta_Instance *b);
 
 void bdelta_getMatch(BDelta_Instance *b, unsigned matchNum,
-	unsigned *p1, unsigned *p2, unsigned *num);
+                     unsigned *p1, unsigned *p2, unsigned *num);
 
 int bdelta_getError(BDelta_Instance *b);
 void bdelta_showMatches(BDelta_Instance *b);
@@ -39,9 +39,9 @@ void bdelta_showMatches(BDelta_Instance *b);
 #define BDELTA_REMOVE_OVERLAP 1
 
 enum BDELTA_RESULT {
-	BDELTA_OK         =  0,
-	BDELTA_MEM_ERROR  = -1,
-	BDELTA_READ_ERROR = -2
+    BDELTA_OK         =  0,
+    BDELTA_MEM_ERROR  = -1,
+    BDELTA_READ_ERROR = -2
 };
 
 #ifdef __cplusplus
