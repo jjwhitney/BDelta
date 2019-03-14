@@ -129,7 +129,7 @@ inline bool fileExists(const T& fname)
 }
 
 template <class T>
-inline uint64_t getLenOfFile(const const T& fname) 
+inline uint64_t getLenOfFile(const T& fname) 
 {
     std::error_code ec;
     return std::filesystem::file_size(fname, ec);
