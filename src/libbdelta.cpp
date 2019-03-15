@@ -24,14 +24,16 @@ typedef uint32_t Token;
 
 
 const bool verbose = false;
-struct checksum_entry {
+struct checksum_entry 
+{
     Hash::Value cksum; //Rolling checksums
     unsigned loc;
     checksum_entry() {}
     checksum_entry(Hash::Value _cksum, unsigned _loc) : cksum(_cksum), loc(_loc) {}
 };
 
-struct Range {
+struct Range 
+{
     unsigned p, num;
     Range() {}
     Range(unsigned _p, unsigned _num) : p(_p), num(_num) {}
@@ -155,31 +157,40 @@ struct UnusedRange
 };
 
 // Sort first by location, second by match length (larger matches first)
-static bool comparep(UnusedRange r1, UnusedRange r2)
+class comparep
 {
-    if (r1.p != r2.p)
-        return r1.p < r2.p;
-    return r1.num > r2.num;
-}
-static bool comparemrp2(UnusedRange r1, UnusedRange r2)
+public:
+    bool operator()(UnusedRange r1, UnusedRange r2)
+    {
+        return ((r1.p != r2.p) ? (r1.p < r2.p) : (r1.num > r2.num));
+    }
+};
+
+class comparemrp2
 {
-    if (r1.mr->p2 != r2.mr->p2)
-        return r1.mr->p2 < r2.mr->p2;
-    return r1.mr->num > r2.mr->num;
-}
-static bool compareMatchP2(Match r1, Match r2)
+public:
+    bool operator()(UnusedRange r1, UnusedRange r2)
+    {
+        return ((r1.mr->p2 != r2.mr->p2)? (r1.mr->p2 < r2.mr->p2) : (r1.mr->num > r2.mr->num));
+    }
+};
+
+class compareMatchP2
 {
-    if (r1.p2 != r2.p2)
-        return r1.p2 < r2.p2;
-    return r1.num > r2.num;
-}
+public:
+    bool operator()(Match r1, Match r2)
+    {
+        return ((r1.p2 != r2.p2) ? (r1.p2 < r2.p2) : (r1.num > r2.num));
+    }
+};
 
 static void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, std::list<Match>::iterator place)
 {
     Match newMatch = Match(p1, p2, num);
-    while (place != b->matches.begin() && ! compareMatchP2(*place, newMatch))
+    compareMatchP2 comp;
+    while (place != b->matches.begin() && !comp(*place, newMatch))
         --place;
-    while (place != b->matches.end() && compareMatchP2(*place, newMatch))
+    while (place != b->matches.end() && comp(*place, newMatch))
         ++place;
     b->matches.insert(place, newMatch);
 }
@@ -189,6 +200,8 @@ T absoluteDifference(T a, T b)
 {
     return std::max(a, b) - std::min(a, b);
 }
+
+
 
 static void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSize, unsigned start, unsigned end, unsigned place, std::list<Match>::iterator iterPlace)
 {
@@ -352,7 +365,7 @@ static void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMa
 
     h.htablesize = std::max((unsigned)2, roundUpPowerOf2(numblocks));
     h.htable = new checksum_entry*[h.htablesize];
-    if (!h.htable) 
+    if (h.htable == nullptr) 
     {
         b->errorcode = BDELTA_MEM_ERROR;
         return;
@@ -417,7 +430,7 @@ void bdelta_swap_inputs(BDelta_Instance *b)
         std::swap(l->p1, l->p2);
     std::swap(b->data1_size, b->data2_size);
     std::swap(b->handle1, b->handle2);
-    b->matches.sort(compareMatchP2);
+    b->matches.sort(compareMatchP2());
 }
 
 void bdelta_clean_matches(BDelta_Instance *b, unsigned flags) 
@@ -485,7 +498,7 @@ void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, 
         unused2[numunused2++] = UnusedRange(l->p2, l->num, l, l);
     }
 
-    std::sort(unused + 1, unused + numunused, comparep); // Leave empty match at beginning
+    std::sort(unused + 1, unused + numunused, comparep()); // Leave empty match at beginning
 
     get_unused_blocks(unused,  &numunused);
     get_unused_blocks(unused2, &numunused2);
@@ -494,7 +507,7 @@ void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, 
         bdelta_pass_2(b, blocksize, minMatchSize, unused, numunused, unused2, numunused2);
     else 
     {
-        std::sort(unused + 1, unused + numunused, comparemrp2);
+        std::sort(unused + 1, unused + numunused, comparemrp2());
         for (unsigned i = 1; i < numunused; ++i) 
         {
             UnusedRange u1 = unused[i], u2 = unused2[i];
