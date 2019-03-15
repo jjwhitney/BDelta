@@ -162,7 +162,7 @@ int main(int argc, char **argv)
         }
 
         unsigned fp = 0;
-        const size_t WRITE_BUFFER_SIZE = 4096;
+        constexpr size_t WRITE_BUFFER_SIZE = 1024 * 1024;
         std::unique_ptr<uint8_t[]> write_buffer(new uint8_t[WRITE_BUFFER_SIZE]);
         for (int i = 0; i < nummatches; ++i) 
         {
