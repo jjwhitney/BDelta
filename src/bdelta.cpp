@@ -11,19 +11,19 @@
 #include "file.h"
 #include "compatibility.h"
 
-const void *f_read(void *f, void *buf, unsigned place, unsigned num) 
+static const void *f_read(void *f, void *buf, unsigned place, unsigned num)
 {
     fseek((FILE *)f, place, SEEK_SET);
     fread_fixed((FILE *)f, buf, num);
     return buf;
 }
 
-inline const void * m_read(void *f, void * /*buf*/, unsigned place, unsigned /*num*/) 
+static inline const void * m_read(void *f, void * /*buf*/, unsigned place, unsigned /*num*/)
 {
     return (const char*)f + place;
 }
 
-void my_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned flags) 
+static void my_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned flags)
 {
     bdelta_pass(b, blocksize, minMatchSize, 0, flags);
     bdelta_clean_matches(b, BDELTA_REMOVE_OVERLAP);

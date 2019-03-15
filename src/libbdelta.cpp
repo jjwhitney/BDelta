@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include <algorithm>
+#include <cstring>
 #include <limits>
 #include <list>
 #include <memory>
@@ -83,14 +84,14 @@ struct Checksums_Instance
 };
 
 
-unsigned match_buf_forward(const void *buf1, const void *buf2, unsigned num) 
+static unsigned match_buf_forward(const void *buf1, const void *buf2, unsigned num)
 { 
     unsigned i = 0;
     while (i < num && ((const Token*)buf1)[i] == ((const Token*)buf2)[i])
         ++i;
     return i;
 }
-unsigned match_buf_backward(const void *buf1, const void *buf2, unsigned num) 
+static unsigned match_buf_backward(const void *buf1, const void *buf2, unsigned num)
 { 
     int i = num;
     do
@@ -100,7 +101,7 @@ unsigned match_buf_backward(const void *buf1, const void *buf2, unsigned num)
     while (i >= 0 && ((const Token*)buf1)[i] == ((const Token*)buf2)[i]);
     return (num - i - 1);
 }
-unsigned match_forward(BDelta_Instance *b, unsigned p1, unsigned p2) 
+static unsigned match_forward(BDelta_Instance *b, unsigned p1, unsigned p2)
 { 
     unsigned num = 0, match, numtoread;
     do 
@@ -117,7 +118,7 @@ unsigned match_forward(BDelta_Instance *b, unsigned p1, unsigned p2)
     return num;
 }
 
-unsigned match_backward(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned blocksize) 
+static unsigned match_backward(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned blocksize)
 {
     unsigned num = 0, match, numtoread;
     do 
@@ -153,26 +154,26 @@ struct UnusedRange
 };
 
 // Sort first by location, second by match length (larger matches first)
-bool comparep(UnusedRange r1, UnusedRange r2) 
+static bool comparep(UnusedRange r1, UnusedRange r2)
 {
     if (r1.p != r2.p)
         return r1.p < r2.p;
     return r1.num > r2.num;
 }
-bool comparemrp2(UnusedRange r1, UnusedRange r2) 
+static bool comparemrp2(UnusedRange r1, UnusedRange r2)
 {
     if (r1.mr->p2 != r2.mr->p2)
         return r1.mr->p2 < r2.mr->p2;
     return r1.mr->num > r2.mr->num;
 }
-bool compareMatchP2(Match r1, Match r2) 
+static bool compareMatchP2(Match r1, Match r2)
 {
     if (r1.p2 != r2.p2)
         return r1.p2 < r2.p2;
     return r1.num > r2.num;
 }
 
-void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, std::list<Match>::iterator place) 
+static void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, std::list<Match>::iterator place)
 {
     Match newMatch = Match(p1, p2, num);
     while (place != b->matches.begin() && ! compareMatchP2(*place, newMatch))
@@ -188,7 +189,7 @@ T absoluteDifference(T a, T b)
     return std::max(a, b) - std::min(a, b);
 }
 
-void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSize, unsigned start, unsigned end, unsigned place, std::list<Match>::iterator iterPlace) 
+static void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSize, unsigned start, unsigned end, unsigned place, std::list<Match>::iterator iterPlace)
 {
     const unsigned blocksize = h->blocksize;
     STACK_ALLOC(buf1, Token, blocksize);
@@ -330,7 +331,7 @@ void bdelta_done_alg(BDelta_Instance *b)
 
 
 // Adapted from http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
-unsigned roundUpPowerOf2(unsigned v) 
+static unsigned roundUpPowerOf2(unsigned v)
 {
     --v;
     for (int i = 1; i <= 16; i *= 2)
@@ -338,7 +339,7 @@ unsigned roundUpPowerOf2(unsigned v)
     return (v + 1);
 }
 
-void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, UnusedRange *unused, unsigned numunused, UnusedRange *unused2, unsigned numunused2) 
+static void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, UnusedRange *unused, unsigned numunused, UnusedRange *unused2, unsigned numunused2)
 {
     Checksums_Instance h(blocksize);
     b->access_int = -1;
@@ -450,7 +451,7 @@ void bdelta_showMatches(BDelta_Instance *b)
     printf ("\n\n");
 }
 
-void get_unused_blocks(UnusedRange *unused, unsigned *numunusedptr) 
+static void get_unused_blocks(UnusedRange *unused, unsigned *numunusedptr)
 {
     unsigned nextStartPos = 0;
     for (unsigned i = 1; i < *numunusedptr; ++i) 

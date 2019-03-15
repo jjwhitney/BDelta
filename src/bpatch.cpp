@@ -7,7 +7,7 @@
 #include "file.h"
 #include "compatibility.h"
 
-bool copy_bytes_to_file(FILE *infile, FILE *outfile, unsigned numleft) 
+static bool copy_bytes_to_file(FILE *infile, FILE *outfile, unsigned numleft)
 {
     size_t numread;
     do {
