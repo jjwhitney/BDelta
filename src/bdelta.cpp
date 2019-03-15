@@ -2,14 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include <inttypes.h>
 #include <memory>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <system_error>
 
 #include "bdelta.h"
 #include "file.h"
-#include "compatibility.h"
 
 static const void *f_read(void *f, void *buf, unsigned place, unsigned num)
 {
@@ -161,14 +162,15 @@ int main(int argc, char **argv)
         }
 
         unsigned fp = 0;
+        const size_t WRITE_BUFFER_SIZE = 4096;
+        std::unique_ptr<uint8_t[]> write_buffer(new uint8_t[WRITE_BUFFER_SIZE]);
         for (int i = 0; i < nummatches; ++i) 
         {
             unsigned num = copyloc2[i];
             while (num > 0) 
             {
-                unsigned towrite = (num > 4096) ? 4096 : num;
-                unsigned char buf[4096];
-                const void * block = all_ram_mode ? m_read(m2.get(), buf, fp, towrite) : f_read(f2, buf, fp, towrite);
+                unsigned towrite = std::min<unsigned>(num, WRITE_BUFFER_SIZE);
+                const void * block = all_ram_mode ? m_read(m2.get(), write_buffer.get(), fp, towrite) : f_read(f2, write_buffer.get(), fp, towrite);
                 fwrite_fixed(fout, block, towrite);
                 num -= towrite;
                 fp += towrite;
@@ -179,9 +181,9 @@ int main(int argc, char **argv)
         }
 
     } 
-    catch (const char * desc)
+    catch (const std::exception& ex)
     {
-        fprintf (stderr, "FATAL: %s\n", desc);
+        fprintf (stderr, "FATAL: %s\n", ex.what());
         return -1;
     }
 

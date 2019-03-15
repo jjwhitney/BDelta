@@ -4,12 +4,11 @@
 
 #include <algorithm>
 #include <cstring>
+#include <inttypes.h>
 #include <limits>
 #include <list>
 #include <memory>
 #include <stdio.h>
-
-#include "compatibility.h"
 
 #if !defined(TOKEN_SIZE) || TOKEN_SIZE == 1
 typedef uint8_t Token;
@@ -104,11 +103,12 @@ static unsigned match_buf_backward(const void *buf1, const void *buf2, unsigned 
 static unsigned match_forward(BDelta_Instance *b, unsigned p1, unsigned p2)
 { 
     unsigned num = 0, match, numtoread;
+    const size_t BUFFER_SIZE = 4096;
+    std::unique_ptr<Token[]> buffer(new Token[BUFFER_SIZE * 2]);
+    Token * buf1 = buffer.get(), * buf2 = buf1 + BUFFER_SIZE;
     do 
     {
-        numtoread = std::min(b->data1_size - p1, b->data2_size - p2);
-        if (numtoread > 4096) numtoread = 4096;
-        Token buf1[4096], buf2[4096];
+        numtoread = std::min<unsigned>(std::min(b->data1_size - p1, b->data2_size - p2), BUFFER_SIZE);
         const Token *read1 = b->read1(buf1, p1, numtoread),
                     *read2 = b->read2(buf2, p2, numtoread);
         p1 += numtoread; p2 += numtoread;
@@ -121,16 +121,14 @@ static unsigned match_forward(BDelta_Instance *b, unsigned p1, unsigned p2)
 static unsigned match_backward(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned blocksize)
 {
     unsigned num = 0, match, numtoread;
+    const size_t BUFFER_SIZE = 4096;
+    std::unique_ptr<Token[]> buffer(new Token[BUFFER_SIZE * 2]);
+    Token * buf1 = buffer.get(), * buf2 = buf1 + BUFFER_SIZE;
     do 
     {
-        numtoread = std::min(p1, p2);
-        if (numtoread > blocksize) 
-            numtoread = blocksize;
-        if (numtoread > 4096) 
-            numtoread = 4096;
+        numtoread = std::min<unsigned>(std::min(std::min(p1, p2), blocksize), BUFFER_SIZE);
         p1 -= numtoread;
         p2 -= numtoread;
-        Token buf1[4096], buf2[4096];
         const Token *read1 = b->read1(buf1, p1, numtoread),
                     *read2 = b->read2(buf2, p2, numtoread);
         match = match_buf_backward(read1, read2, numtoread);
@@ -192,8 +190,9 @@ T absoluteDifference(T a, T b)
 static void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSize, unsigned start, unsigned end, unsigned place, std::list<Match>::iterator iterPlace)
 {
     const unsigned blocksize = h->blocksize;
-    STACK_ALLOC(buf1, Token, blocksize);
-    STACK_ALLOC(buf2, Token, blocksize);
+
+    std::unique_ptr<Token[]> buffer(new Token[blocksize * 2]);
+    Token * buf1 = buffer.get(), * buf2 = buf1 + blocksize;
 
     unsigned best1 = 0, best2 = 0, bestnum = 0;
     unsigned processMatchesPos = 0;
@@ -366,13 +365,13 @@ static void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMa
     std::unique_ptr<checksum_entry[]> checksums_holder(h.checksums);
 
     h.numchecksums = 0;
-    STACK_ALLOC(buf, Token, blocksize);
+    std::unique_ptr<Token[]> buf(new Token[blocksize]);
     for (unsigned i = 0; i < numunused; ++i)
     {
         unsigned first = unused[i].p, last = unused[i].p + unused[i].num;
         for (unsigned loc = first; loc + blocksize <= last; loc += blocksize) 
         {
-            const Token *read = b->read1(buf, loc, blocksize);
+            const Token *read = b->read1(buf.get(), loc, blocksize);
             Hash::Value blocksum = Hash(read, blocksize).getValue();
             // Adjacent checksums are never repeated.
             h.add(checksum_entry(blocksum, loc));

@@ -10,52 +10,14 @@
 #include <filesystem>
 #endif // USE_CXX17
 #include <stdio.h>
+#include <system_error>
 #include <type_traits>
 
 #define MAX_IO_BLOCK_SIZE (1024 * 1024)
 
-static char error_message_buffer[512];
+void fread_fixed(FILE *f, void * _buf, unsigned num_bytes);
+void fwrite_fixed(FILE *f, const void * _buf, unsigned num_bytes);
 
-static void fread_fixed(FILE *f, void * _buf, unsigned num_bytes)
-{
-    char * buf = (char *)_buf;
-
-    while (num_bytes != 0)
-    {
-        unsigned block_size = num_bytes;
-        if (block_size > MAX_IO_BLOCK_SIZE) 
-            block_size = MAX_IO_BLOCK_SIZE;
-
-        size_t r = fread(buf, 1, block_size, f);
-        if (r != block_size)
-        {
-            snprintf(error_message_buffer, sizeof(error_message_buffer), "read error: fread_fixed(block_size=%u) != %u", block_size, (unsigned)r);
-            throw error_message_buffer;
-        }
-        buf       += block_size;
-        num_bytes -= block_size;
-    }
-}
-
-static void fwrite_fixed(FILE *f, const void * _buf, unsigned num_bytes)
-{
-    const char * buf = (const char *)_buf;
-
-    while (num_bytes != 0)
-    {
-        unsigned block_size = num_bytes;
-        if (block_size > MAX_IO_BLOCK_SIZE) block_size = MAX_IO_BLOCK_SIZE;
-
-        size_t r = fwrite(buf, 1, block_size, f);
-        if (r != block_size)
-        {
-            snprintf(error_message_buffer, sizeof(error_message_buffer), "write error: fwrite_fixed(num_bytes=%u) != %u", block_size, (unsigned)r);
-            throw error_message_buffer;
-        }
-        buf       += block_size;
-        num_bytes -= block_size;
-    }
-}
 
 #ifdef BIG_ENDIAN_HOST
 

@@ -2,24 +2,35 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include <inttypes.h>
+#include <memory>
 #include <stdio.h>
 #include <string.h>
+
 #include "file.h"
-#include "compatibility.h"
 
 static bool copy_bytes_to_file(FILE *infile, FILE *outfile, unsigned numleft)
 {
-    size_t numread;
-    do {
-        char buf[1024];
-        numread = fread(buf, 1, numleft > 1024 ? 1024 : numleft, infile);
-        if (fwrite(buf, 1, numread, outfile) != numread) {
+    const size_t BUFFER_SIZE = 65536;
+    std::unique_ptr<uint8_t[]> buf(new uint8_t[BUFFER_SIZE]);
+    while (numleft != 0)
+    {
+        const size_t len = std::min<size_t>(BUFFER_SIZE, numleft);
+        size_t numread = fread(buf.get(), 1, len, infile);
+        if (len != numread)
+        {
+            printf("Could not read data\n");
+            return false;
+        }
+        if (fwrite(buf.get(), 1, numread, outfile) != numread) 
+        {
             printf("Could not write temporary data.  Possibly out of space\n");
             return false;
         }
         numleft -= numread;
-    } while (numleft && !(numread < 1024 && numleft));
-    return (numleft == 0);
+    }
+
+    return true;
 }
 
 int main(int argc, char **argv) 
@@ -117,9 +128,9 @@ int main(int argc, char **argv)
             }
         }
     } 
-    catch (const char * desc)
+    catch (const std::exception& ex)
     {
-        fprintf (stderr, "FATAL: %s\n", desc);
+        fprintf (stderr, "FATAL: %s\n", ex.what());
         return -1;
     }
 

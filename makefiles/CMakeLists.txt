@@ -13,15 +13,16 @@ ENDIF()
 
 set (COMMON_SOURCES
 
-    ../src/compatibility.h
-    ../src/checksum.h
-    ../src/file.h 
+    ../src/file.h
+    ../src/file.cpp
 )
 
 set (BDELTA_SOURCES  
     
     ${COMMON_SOURCES}    
     ../src/bdelta.cpp
+    ../src/bdelta.h
+    ../src/checksum.h
     ../src/libbdelta.cpp
 )
 
