@@ -102,12 +102,15 @@ int main(int argc, char **argv)
         }
         std::unique_ptr<FILE, int(*)(FILE*)> ref_holder(ref, fclose);
 
+        const size_t fout_buffer_size = 65536;
+        std::unique_ptr<char[]> outfile_buffer(new char[fout_buffer_size]);
         FILE * outfile = fopen(argv[2], "wb");
         if (outfile == nullptr)
         {
             printf("Error: unable to open file %s\n", argv[2]);
             return -1;
         }
+        setvbuf(outfile, outfile_buffer.get(), _IOFBF, fout_buffer_size);
         std::unique_ptr<FILE, int(*)(FILE*)> outfile_holder(outfile, fclose);
 
         for (unsigned i = 0; i < nummatches; ++i) 

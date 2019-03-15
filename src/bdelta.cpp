@@ -121,12 +121,15 @@ int main(int argc, char **argv)
         unsigned *  copynum = new unsigned[nummatches + 1];
         std::unique_ptr<unsigned[]> copyloc1_holder(copyloc1), copyloc2_holder(copyloc2), copynum_holder(copynum);
 
+        const size_t fout_buffer_size = 65536;
+        std::unique_ptr<char[]> fout_buffer(new char[fout_buffer_size]);
         FILE *fout = fopen(argv[3], "wb");
         if (fout == nullptr) 
         {
             printf("couldn't open output file\n");
             exit(1);
         }
+        setvbuf(fout, fout_buffer.get(), _IOFBF, fout_buffer_size);
         std::unique_ptr<FILE, int(*)(FILE*)> fout_holder(fout, fclose);
 
         const char * magic = "BDT";
