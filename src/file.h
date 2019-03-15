@@ -13,7 +13,7 @@
 #include <system_error>
 #include <type_traits>
 
-#define MAX_IO_BLOCK_SIZE (1024 * 1024)
+static constexpr size_t MAX_IO_BLOCK_SIZE = (1024 * 1024);
 
 void fread_fixed(FILE *f, void * _buf, unsigned num_bytes);
 void fwrite_fixed(FILE *f, const void * _buf, unsigned num_bytes);
