@@ -7,9 +7,8 @@
 #include <algorithm>
 
 #ifdef _MSC_VER
-#define fast_fwrite _fwrite_nolock
-#else
-#define fast_fwrite fwrite
+#define fwrite_unlocked _fwrite_nolock
+#define fread_unlocked  _fread_nolock
 #endif // _MSC_VER
 
 void fread_fixed(FILE *f, void * _buf, unsigned num_bytes)
@@ -22,7 +21,7 @@ void fread_fixed(FILE *f, void * _buf, unsigned num_bytes)
         if (block_size > MAX_IO_BLOCK_SIZE) 
             block_size = MAX_IO_BLOCK_SIZE;
 
-        size_t r = fread(buf, 1, block_size, f);
+        size_t r = fread_unlocked(buf, 1, block_size, f);
         if (r != block_size)
         {
             const size_t BUFFER_SIZE = 512;
@@ -43,7 +42,7 @@ void fwrite_fixed(FILE *f, const void * _buf, unsigned num_bytes)
     {
         unsigned block_size = std::min<unsigned>(num_bytes, MAX_IO_BLOCK_SIZE);
 
-        size_t r = fast_fwrite(buf, 1, block_size, f);
+        size_t r = fwrite_unlocked(buf, 1, block_size, f);
         if (r != block_size)
         {
             const size_t BUFFER_SIZE = 512;
