@@ -9,6 +9,7 @@
 #include <list>
 #include <memory>
 #include <stdio.h>
+#include <utility>
 
 #if !defined(TOKEN_SIZE) || TOKEN_SIZE == 1
 typedef uint8_t Token;
@@ -66,14 +67,16 @@ struct Checksums_Instance
 {
     unsigned blocksize;
     unsigned htablesize;
-    checksum_entry **htable; // Points to first match in checksums
+    checksum_entry **htable;    // Points to first match in checksums
     checksum_entry *checksums;  // Sorted list of all checksums
     unsigned numchecksums;
 
-    Checksums_Instance(int blocksize) { this->blocksize = blocksize; }
-    void add(checksum_entry ck) 
+    explicit Checksums_Instance(int _blocksize) : blocksize(_blocksize) {}
+    
+    template <class T>
+    void add(T&& ck) 
     {
-        checksums[numchecksums] = ck;
+        checksums[numchecksums] = std::forward<T>(ck);
         ++numchecksums;
     }
     unsigned tableIndex(Hash::Value hashValue) 
@@ -285,7 +288,7 @@ static void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minM
 struct Checksums_Compare 
 {
     Checksums_Instance &ci;
-    Checksums_Compare(Checksums_Instance &h) : ci(h) {}
+    explicit Checksums_Compare(Checksums_Instance &h) : ci(h) {}
     bool operator() (checksum_entry c1, checksum_entry c2) 
     {
         unsigned ti1 = ci.tableIndex(c1.cksum), ti2 = ci.tableIndex(c2.cksum);
