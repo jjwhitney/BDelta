@@ -6,6 +6,12 @@
 
 #include <algorithm>
 
+#ifdef _MSC_VER
+#define fast_fwrite _fwrite_nolock
+#else
+#define fast_fwrite fwrite
+#endif // _MSC_VER
+
 void fread_fixed(FILE *f, void * _buf, unsigned num_bytes)
 {
     char * buf = (char *)_buf;
@@ -37,7 +43,7 @@ void fwrite_fixed(FILE *f, const void * _buf, unsigned num_bytes)
     {
         unsigned block_size = std::min<unsigned>(num_bytes, MAX_IO_BLOCK_SIZE);
 
-        size_t r = fwrite(buf, 1, block_size, f);
+        size_t r = fast_fwrite(buf, 1, block_size, f);
         if (r != block_size)
         {
             const size_t BUFFER_SIZE = 512;
