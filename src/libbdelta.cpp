@@ -48,7 +48,7 @@ struct Match
 
 struct _BDelta_Instance 
 {
-    bdelta_readCallback cb;
+    const bdelta_readCallback cb;
     void *handle1, *handle2;
     unsigned data1_size, data2_size;
     std::list<Match> matches;
@@ -56,13 +56,20 @@ struct _BDelta_Instance
     int access_int;
     int errorcode;
 
+    _BDelta_Instance(bdelta_readCallback _cb, void * _handle1, void * _handle2,
+                     unsigned _data1_size, unsigned _data2_size)
+        : cb(_cb), handle1(_handle1), handle2(_handle2)
+        , data1_size(_data1_size), data2_size(_data2_size)
+        , access_int(-1), errorcode(0)
+    {}
+
     const Token *read1(void *buf, unsigned place, unsigned num)
     {
-        return (const Token*)cb(handle1, buf, place, num);
+        return (cb == nullptr)? ((const Token*)((char *)handle1 + place)) : ((const Token*)cb(handle1, buf, place, num));
     }
     const Token *read2(void *buf, unsigned place, unsigned num)
     {
-        return (const Token*)cb(handle2, buf, place, num);
+        return (cb == nullptr) ? ((const Token*)((char *)handle2 + place)) : ((const Token*)cb(handle2, buf, place, num));
     }
 };
 
@@ -334,15 +341,9 @@ BDelta_Instance *bdelta_init_alg(unsigned data1_size, unsigned data2_size,
         printf("Error: BDelta library compiled for token size of %lu.\n", (unsigned long)sizeof (Token));
         return 0;
     }
-    BDelta_Instance *b = new BDelta_Instance;
+    BDelta_Instance *b = new BDelta_Instance(cb, handle1, handle2, data1_size, data2_size);
     if (!b) 
         return nullptr;
-    b->data1_size = data1_size;
-    b->data2_size = data2_size;
-    b->cb = cb;
-    b->handle1 = handle1;
-    b->handle2 = handle2;
-    b->access_int = -1;
 
     match_forward_buffer.reset(new Token[TOKEN_BUFFER_SIZE * 2]);
     match_backward_buffer.reset(new Token[TOKEN_BUFFER_SIZE * 2]);

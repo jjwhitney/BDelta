@@ -19,11 +19,6 @@ static const void *f_read(void *f, void *buf, unsigned place, unsigned num)
     return buf;
 }
 
-static inline const void * m_read(void *f, void * /*buf*/, unsigned place, unsigned /*num*/)
-{
-    return (const char*)f + place;
-}
-
 static void my_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned flags)
 {
     bdelta_pass(b, blocksize, minMatchSize, 0, flags);
@@ -34,13 +29,12 @@ int main(int argc, char **argv)
 {
     try 
     {
-        bool all_ram_mode = false;
         std::unique_ptr<char[]> m1;
         std::unique_ptr<char[]> m2;
 
-        if (argc > 1 && strcmp(argv[1], "--all-in-ram") == 0)
+        const bool all_ram_mode = (argc > 1 && strcmp(argv[1], "--all-in-ram") == 0);
+        if (all_ram_mode)
         {
-            all_ram_mode = true;
             --argc;
             ++argv;
         }
@@ -82,7 +76,7 @@ int main(int argc, char **argv)
             fread_fixed(f1, m1.get(), size);
             fread_fixed(f2, m2.get(), size2);
 
-            b = bdelta_init_alg(size, size2, m_read, m1.get(), m2.get(), 1);
+            b = bdelta_init_alg(size, size2, nullptr, m1.get(), m2.get(), 1);
         }
         else
             b = bdelta_init_alg(size, size2, f_read, f1, f2, 1);
@@ -173,7 +167,7 @@ int main(int argc, char **argv)
             while (num > 0) 
             {
                 unsigned towrite = std::min<unsigned>(num, WRITE_BUFFER_SIZE);
-                const void * block = all_ram_mode ? m_read(m2.get(), write_buffer.get(), fp, towrite) : f_read(f2, write_buffer.get(), fp, towrite);
+                const void * block = all_ram_mode ? (const void *)((char*)m2.get() + fp) : f_read(f2, write_buffer.get(), fp, towrite);
                 fwrite_fixed(fout, block, towrite);
                 num -= towrite;
                 fp += towrite;
