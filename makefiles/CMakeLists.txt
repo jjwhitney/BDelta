@@ -4,6 +4,7 @@ project(bdelta)
 set(CMAKE_CXX_STANDARD 17)
 
 option(BDELTA_PGO  "build using PGO instead of PGI (MSVC only)" "OFF")
+option(GCC32       "build 32 bit executable instead of 64 bit (GCC only)" "OFF")
 
 IF(MSVC)
     set(CMAKE_CONFIGURATION_TYPES "Debug;Release;PGO" CACHE STRING "" FORCE)
@@ -143,10 +144,15 @@ ELSE()
     
     SET(CMAKE_EXE_LINKER_FLAGS_RELEASE    "${CMAKE_EXE_LINKER_FLAGS} -s")
     SET(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS} -s")
+
+    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+    SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc -static-libstdc++")
     
+IF (GCC32)
     add_compile_options (-m32)
-    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -m32 -static-libgcc -static-libstdc++")
-    SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -m32 -static-libgcc -static-libstdc++")
+    SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -m32")
+    SET(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -m32")
+ENDIF()   
 ENDIF()
 
 string(TIMESTAMP BUILD_YEAR "%Y")
