@@ -109,7 +109,7 @@ int main(int argc, char **argv)
             return -1;
         }
         constexpr size_t outfile_buffer_size = 256 * 1024;
-        setvbuf(outfile, nullptr, _IOFBF, fout_buffer_size);
+        setvbuf(outfile, nullptr, _IOFBF, outfile_buffer_size);
         std::unique_ptr<FILE, int(*)(FILE*)> outfile_holder(outfile, fclose);
 
         for (unsigned i = 0; i < nummatches; ++i) 
