@@ -17,9 +17,7 @@ void fread_fixed(FILE *f, void * _buf, unsigned num_bytes)
 
     while (num_bytes != 0)
     {
-        unsigned block_size = num_bytes;
-        if (block_size > MAX_IO_BLOCK_SIZE) 
-            block_size = MAX_IO_BLOCK_SIZE;
+        unsigned block_size = std::min<unsigned>(num_bytes, MAX_IO_BLOCK_SIZE);
 
         size_t r = fread_unlocked(buf, 1, block_size, f);
         if (r != block_size)
