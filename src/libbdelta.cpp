@@ -75,19 +75,23 @@ struct _BDelta_Instance
 
 struct Checksums_Instance 
 {
-    unsigned blocksize;
-    unsigned htablesize;
-    checksum_entry **htable;    // Points to first match in checksums
-    checksum_entry *checksums;  // Sorted list of all checksums
+    const unsigned blocksize;
+    const unsigned htablesize;
+    checksum_entry ** const htable;    // Points to first match in checksums
+    checksum_entry * const checksums;  // Sorted list of all checksums
     unsigned numchecksums;
 
-    explicit Checksums_Instance(int _blocksize) : blocksize(_blocksize) {}
+    Checksums_Instance(unsigned _blocksize, unsigned _htablesize, checksum_entry ** _htable, checksum_entry * _checksums)
+        : blocksize(_blocksize), htablesize(_htablesize), htable(_htable)
+        , checksums(_checksums), numchecksums(0)
+    {
+        memset(htable, 0, htablesize * sizeof(htable[0]));
+    }
     
     template <class T>
     void add(T&& ck) 
     {
-        checksums[numchecksums] = std::forward<T>(ck);
-        ++numchecksums;
+        checksums[++numchecksums] = std::forward<T>(ck);
     }
     unsigned tableIndex(Hash::Value hashValue) 
     {
@@ -390,21 +394,17 @@ static unsigned roundUpPowerOf2(unsigned v)
 
 static void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, UnusedRange *unused, unsigned numunused, UnusedRange *unused2, unsigned numunused2)
 {
-    Checksums_Instance h(blocksize);
     b->access_int = -1;
 
     unsigned numblocks = 0;
     for (unsigned i = 0; i < numunused; ++i) 
         numblocks += unused[i].num / blocksize;
 
-    h.htablesize = std::max((unsigned)2, roundUpPowerOf2(numblocks));
-    bdelta_pass_2_htable.resize(h.htablesize);
-    h.htable = bdelta_pass_2_htable.data();
-
+    bdelta_pass_2_htable.resize(std::max((unsigned)2, roundUpPowerOf2(numblocks)));
     bdelta_pass_2_hchecksums.resize(numblocks + 2);
-    h.checksums = bdelta_pass_2_hchecksums.data();
 
-    h.numchecksums = 0;
+    Checksums_Instance h(blocksize, bdelta_pass_2_htable.size(), bdelta_pass_2_htable.data(), bdelta_pass_2_hchecksums.data());
+
     bdelta_pass_2_buf.resize(blocksize);
     for (unsigned i = 0; i < numunused; ++i)
     {
@@ -437,7 +437,6 @@ static void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMa
     h.checksums[h.numchecksums].loc = 0; // So we'll just read from the beginning of the file to prevent crashes.
     h.checksums[h.numchecksums + 1].cksum = 0;
 
-    memset(h.htable, 0, h.htablesize * sizeof(h.htable[0]));
     for (int i = h.numchecksums - 1; i >= 0; --i)
         h.htable[h.tableIndex(h.checksums[i].cksum)] = &h.checksums[i];
 
