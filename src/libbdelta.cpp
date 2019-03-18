@@ -91,7 +91,7 @@ struct Checksums_Instance
     template <class T>
     void add(T&& ck) 
     {
-        checksums[++numchecksums] = std::forward<T>(ck);
+        checksums[numchecksums++] = std::forward<T>(ck);
     }
     unsigned tableIndex(Hash::Value hashValue) 
     {
