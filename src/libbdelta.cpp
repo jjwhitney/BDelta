@@ -532,18 +532,18 @@ void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, 
     else 
     {
         std::sort(unused + 1, unused + numunused, comparemrp2());
-        for (unsigned i = 1; i < numunused; ++i) 
+        for (unsigned i = 1; i < numunused; ++i)
         {
             UnusedRange u1 = unused[i], u2 = unused2[i];
             if (u1.num >= blocksize && u2.num >= blocksize)
-                if (! maxHoleSize || (u1.num <= maxHoleSize && u2.num <= maxHoleSize))
-                    if (! (flags & BDELTA_SIDES_ORDERED) || (bdelta_next(u1.ml) == u1.mr && bdelta_next(u2.ml) == u2.mr))
+                if (!maxHoleSize || (u1.num <= maxHoleSize && u2.num <= maxHoleSize))
+                    if (!(flags & BDELTA_SIDES_ORDERED) || (bdelta_next(u1.ml) == u1.mr && bdelta_next(u2.ml) == u2.mr))
                         bdelta_pass_2(b, blocksize, minMatchSize, &u1, 1, &u2, 1);
         }
     }
 
     if (verbose) 
-        printf("pass (blocksize: %u, matches: %lu)\n", blocksize, (unsigned long)b->matches.size());
+        printf("pass (blocksize: %u, matches: %u)\n", blocksize, (unsigned)b->matches.size());
 
     // Get rid of the dummy values we placed at the ends.
     b->matches.erase(std::find_if(b->matches.begin(), b->matches.end(), isZeroMatch));
