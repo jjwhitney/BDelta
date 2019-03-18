@@ -397,8 +397,9 @@ static void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMa
     b->access_int = -1;
 
     unsigned numblocks = 0;
-    for (unsigned i = 0; i < numunused; ++i) 
-        numblocks += unused[i].num / blocksize;
+    for (unsigned i = 0; i < numunused; ++i)
+        numblocks += unused[i].num;
+    numblocks /= blocksize;
 
     bdelta_pass_2_htable.resize(std::max((unsigned)2, roundUpPowerOf2(numblocks)));
     bdelta_pass_2_hchecksums.resize(numblocks + 2);
