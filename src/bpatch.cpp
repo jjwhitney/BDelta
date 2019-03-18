@@ -9,6 +9,11 @@
 
 #include "file.h"
 
+#ifdef _MSC_VER
+#define fread_unlocked _fread_nolock
+#define fwrite_unlocked _fwrite_nolock
+#endif
+
 static bool copy_bytes_to_file(FILE *infile, FILE *outfile, unsigned numleft)
 {
     const size_t BUFFER_SIZE = 65536;
@@ -16,13 +21,13 @@ static bool copy_bytes_to_file(FILE *infile, FILE *outfile, unsigned numleft)
     while (numleft != 0)
     {
         const size_t len = std::min<size_t>(BUFFER_SIZE, numleft);
-        size_t numread = fread(buf.get(), 1, len, infile);
+        size_t numread = fread_unlocked(buf.get(), 1, len, infile);
         if (len != numread)
         {
             printf("Could not read data\n");
             return false;
         }
-        if (fwrite(buf.get(), 1, numread, outfile) != numread) 
+        if (fwrite_unlocked(buf.get(), 1, numread, outfile) != numread)
         {
             printf("Could not write temporary data.  Possibly out of space\n");
             return false;
@@ -50,31 +55,31 @@ int main(int argc, char **argv)
             return 1;
         }
 
-        FILE *patchfile = fopen(argv[3], "rb");
+        std::unique_ptr<FILE, int(*)(FILE*)> patchfile(fopen(argv[3], "rb"), fclose);
         char magic[3];
-        fread_fixed(patchfile, magic, 3);
+        fread_fixed(patchfile.get(), magic, 3);
         if (strncmp(magic, "BDT", 3)) 
         {
             printf("Given file is not a recognized patchfile\n");
             return 1;
         }
-        unsigned short version = read_word(patchfile);
+        unsigned short version = read_word(patchfile.get());
         if (version != 1) 
         {
             printf("unsupported patch version\n");
             return 1;
         }
         char intsize;
-        fread_fixed(patchfile, &intsize, 1);
+        fread_fixed(patchfile.get(), &intsize, 1);
         if (intsize != 4) 
         {
             printf("unsupported file pointer size\n");
             return 1;
         }
-        /*unsigned size1 =*/ read_dword(patchfile);
-        unsigned size2 = read_dword(patchfile);
+        /*unsigned size1 =*/ read_dword(patchfile.get());
+        unsigned size2 = read_dword(patchfile.get());
 
-        unsigned nummatches = read_dword(patchfile);
+        unsigned nummatches = read_dword(patchfile.get());
 
         unsigned * copyloc1 = new unsigned[nummatches + 1];
         unsigned * copyloc2 = new unsigned[nummatches + 1];
@@ -83,47 +88,47 @@ int main(int argc, char **argv)
 
         for (unsigned i = 0; i < nummatches; ++i) 
         {
-            copyloc1[i] = read_dword(patchfile);
-            copyloc2[i] = read_dword(patchfile);
-            copynum[i] = read_dword(patchfile);
+            copyloc1[i] = read_dword(patchfile.get());
+            copyloc2[i] = read_dword(patchfile.get());
+            copynum[i] = read_dword(patchfile.get());
             size2 -= copyloc2[i] + copynum[i];
         }
-        if (size2) {
+        if (size2) 
+        {
             copyloc1[nummatches] = 0; copynum[nummatches] = 0;
             copyloc2[nummatches] = size2;
             ++nummatches;
         }
 
-        FILE * ref = fopen(argv[1], "rb");
-        if (ref == nullptr)
+        std::unique_ptr<FILE, int(*)(FILE*)> ref(fopen(argv[1], "rb"), fclose);
+        if (!ref)
         {
             printf("Error: unable to open file %s\n", argv[1]);
             return -1;
         }
-        std::unique_ptr<FILE, int(*)(FILE*)> ref_holder(ref, fclose);
+        
 
-        FILE * outfile = fopen(argv[2], "wb");
-        if (outfile == nullptr)
+        std::unique_ptr<FILE, int(*)(FILE*)> outfile(fopen(argv[2], "wb"), fclose);
+        if (!outfile)
         {
             printf("Error: unable to open file %s\n", argv[2]);
             return -1;
         }
         constexpr size_t outfile_buffer_size = 256 * 1024;
-        setvbuf(outfile, nullptr, _IOFBF, outfile_buffer_size);
-        std::unique_ptr<FILE, int(*)(FILE*)> outfile_holder(outfile, fclose);
-
+        setvbuf(outfile.get(), nullptr, _IOFBF, outfile_buffer_size);
+        
         for (unsigned i = 0; i < nummatches; ++i) 
         {
-            if (!copy_bytes_to_file(patchfile, outfile, copyloc2[i])) 
+            if (!copy_bytes_to_file(patchfile.get(), outfile.get(), copyloc2[i]))
             {
                 printf("Error: patchfile is truncated\n");
                 return -1;
             }
 
             int copyloc = copyloc1[i];
-            fseek(ref, copyloc, SEEK_CUR);
+            fseek(ref.get(), copyloc, SEEK_CUR);
 
-            if (!copy_bytes_to_file(ref, outfile, copynum[i])) 
+            if (!copy_bytes_to_file(ref.get(), outfile.get(), copynum[i]))
             {
                 printf("Error while copying from reference file\n");
                 return -1;

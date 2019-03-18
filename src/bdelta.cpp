@@ -51,21 +51,21 @@ int main(int argc, char **argv)
         }
         unsigned size  = (unsigned)getLenOfFile(argv[1]);
         unsigned size2 = (unsigned)getLenOfFile(argv[2]);
-        FILE * f1 = fopen(argv[1], "rb");
-        if (f1 == nullptr)
+        std::unique_ptr<FILE, int(*)(FILE*)> f1(fopen(argv[1], "rb"), fclose);
+        if (!f1)
         {
             printf("unable to open file %s\n", argv[1]);
             exit(1);
         }
-        std::unique_ptr<FILE, int(*)(FILE*)> f1_holder(f1, fclose);
+        
 
-        FILE * f2 = fopen(argv[2], "rb");
-        if (f2 == nullptr)
+        std::unique_ptr<FILE, int(*)(FILE*)> f2(fopen(argv[2], "rb"), fclose);
+        if (!f2)
         {
             printf("unable to open file %s\n", argv[2]);
             exit(1);
         }
-        std::unique_ptr<FILE, int(*)(FILE*)> f2_holder(f2, fclose);
+        
         
         BDelta_Instance * b = nullptr;
 
@@ -73,13 +73,13 @@ int main(int argc, char **argv)
         {
             m1.reset(new char[size]);
             m2.reset(new char[size2]);
-            fread_fixed(f1, m1.get(), size);
-            fread_fixed(f2, m2.get(), size2);
+            fread_fixed(f1.get(), m1.get(), size);
+            fread_fixed(f2.get(), m2.get(), size2);
 
             b = bdelta_init_alg(size, size2, nullptr, m1.get(), m2.get(), 1);
         }
         else
-            b = bdelta_init_alg(size, size2, f_read, f1, f2, 1);
+            b = bdelta_init_alg(size, size2, f_read, f1.get(), f2.get(), 1);
 
         std::unique_ptr<BDelta_Instance, void(*)(BDelta_Instance*)> b_holder(b, bdelta_done_alg);
 
@@ -115,25 +115,24 @@ int main(int argc, char **argv)
         unsigned *  copynum = new unsigned[nummatches + 1];
         std::unique_ptr<unsigned[]> copyloc1_holder(copyloc1), copyloc2_holder(copyloc2), copynum_holder(copynum);
 
-        FILE *fout = fopen(argv[3], "wb");
-        if (fout == nullptr) 
+        std::unique_ptr<FILE, int(*)(FILE*)> fout(fopen(argv[3], "wb"), fclose);
+        if (!fout) 
         {
             printf("couldn't open output file\n");
             exit(1);
         }
         constexpr size_t fout_buffer_size = 256 * 1024;
-        setvbuf(fout, nullptr, _IOFBF, fout_buffer_size);
-        std::unique_ptr<FILE, int(*)(FILE*)> fout_holder(fout, fclose);
+        setvbuf(fout.get(), nullptr, _IOFBF, fout_buffer_size);
 
         const char * magic = "BDT";
-        fwrite_fixed(fout, magic, 3);
+        fwrite_fixed(fout.get(), magic, 3);
         unsigned short version = 1;
-        write_word(fout, version);
+        write_word(fout.get(), version);
         unsigned char intsize = 4;
-        fwrite_fixed(fout, &intsize, 1);
-        write_dword(fout, size);
-        write_dword(fout, size2);
-        write_dword(fout, nummatches);
+        fwrite_fixed(fout.get(), &intsize, 1);
+        write_dword(fout.get(), size);
+        write_dword(fout.get(), size2);
+        write_dword(fout.get(), nummatches);
 
         unsigned lastp1 = 0, lastp2 = 0;
         for (int i = 0; i < nummatches; ++i) 
@@ -141,11 +140,11 @@ int main(int argc, char **argv)
             unsigned p1 = 0, p2 = 0, num = 0;
             bdelta_getMatch(b, i, &p1, &p2, &num);
             copyloc1[i] = p1 - lastp1;
-            write_dword(fout, copyloc1[i]);
+            write_dword(fout.get(), copyloc1[i]);
             copyloc2[i] = p2 - lastp2;
-            write_dword(fout, copyloc2[i]);
+            write_dword(fout.get(), copyloc2[i]);
             copynum[i] = num;
-            write_dword(fout, copynum[i]);
+            write_dword(fout.get(), copynum[i]);
             lastp1 = p1 + num;
             lastp2 = p2 + num;
         }
@@ -166,8 +165,8 @@ int main(int argc, char **argv)
             while (num > 0) 
             {
                 unsigned towrite = std::min<unsigned>(num, WRITE_BUFFER_SIZE);
-                const void * block = all_ram_mode ? (const void *)((char*)m2.get() + fp) : f_read(f2, write_buffer.get(), fp, towrite);
-                fwrite_fixed(fout, block, towrite);
+                const void * block = all_ram_mode ? (const void *)((char*)m2.get() + fp) : f_read(f2.get(), write_buffer.get(), fp, towrite);
+                fwrite_fixed(fout.get(), block, towrite);
                 num -= towrite;
                 fp += towrite;
             }
