@@ -36,15 +36,16 @@ private:
 
     void advance_add(Token in) 
     {
-        value += in;
-        value *= multiplyAmount;
+        value = (value + in) * multiplyAmount;
     }
     void advance_remove(Token out) { value -= out * oldCoefficient; }
     static ProcValue powHash(ProcValue x, unsigned y) 
     {
         ProcValue res = 1;
-        while (y) {
-            if (y & 1) res *= x;
+        while (y) 
+        {
+            if (y & 1)
+                res *= x;
             x *= x;
             y >>= 1;
         }
