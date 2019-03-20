@@ -159,7 +159,10 @@ ELSE()
                         -Werror=missing-format-attribute
                         -funsigned-char)
     
-    SET(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -Werror=delete-non-virtual-dtor -U__STRICT_ANSI__ -fno-operator-names -std=c++17")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=delete-non-virtual-dtor -U__STRICT_ANSI__ -fno-operator-names")
+    IF (CXX17)
+        SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
+    ENDIF()
     SET(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -Wimplicit-int -Wmissing-prototypes -Werror=implicit-int")
 
     SET(CMAKE_CXX_FLAGS_RELEASE  "-O2 -s -fno-rtti -DNDEBUG")
