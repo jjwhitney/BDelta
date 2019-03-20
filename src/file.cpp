@@ -5,6 +5,7 @@
 #include "file.h"
 
 #include <algorithm>
+#include <memory>
 
 #ifdef _MSC_VER
 #define fwrite_unlocked _fwrite_nolock
