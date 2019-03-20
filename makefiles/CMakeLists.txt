@@ -1,10 +1,15 @@
 cmake_minimum_required(VERSION 3.6)
 
 project(bdelta)
-set(CMAKE_CXX_STANDARD 17)
 
-option(BDELTA_PGO  "build using PGO instead of PGI (MSVC only)" "OFF")
-option(GCC32       "build 32 bit executable instead of 64 bit (GCC only)" "OFF")
+option(BDELTA_PGO      "build using PGO instead of PGI (MSVC only)" "OFF")
+option(GCC32           "build 32 bit executable instead of 64 bit (GCC only)" "OFF")
+option(CXX17           "enable C++17 features" "ON")
+option(BIG_ENDIAN_HOST "build for big endian host" "OFF")
+
+IF (CXX17)
+    set(CMAKE_CXX_STANDARD 17)
+ENDIF()
 
 IF(MSVC)
     set(CMAKE_CONFIGURATION_TYPES "Debug;Release;PGO" CACHE STRING "" FORCE)
@@ -33,8 +38,27 @@ set (BPATCH_SOURCES
     ../src/bpatch.cpp
 )
 
+set (BDELTA_STATIC_LIB_SOURCES 
+    
+    ${COMMON_SOURCES}
+    ../src/bdelta.h
+    ../src/checksum.h
+    ../src/libbdelta.cpp
+)
+
+set (BDELTA_SHARED_LIB_SOURCES 
+    
+    ${BDELTA_STATIC_LIB_SOURCES}
+)
+
 IF(MSVC)
-    IF(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.15)
+    set (BDELTA_SHARED_LIB_SOURCES
+    
+        ${BDELTA_SHARED_LIB_SOURCES}
+        ../src/bdelta.def
+    )
+
+    IF(CXX17 AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.15)
         message(FATAL_ERROR "Your Visual Studio is too old. Fully updated Visual Studio 2017 or newer is required")
     ENDIF()
     add_compile_options(/Zi   # pdb
@@ -63,7 +87,11 @@ IF(MSVC)
                         /MP    # multiprocessor compilation
                         /utf-8 # utf-8 source & exec
                         /GF    # eliminate duplicate strings
-                        /std:c++17)
+                        )
+    
+    IF (CXX17)
+        add_compile_options(/std:c++17)
+    ENDIF()
     
     SET(CMAKE_CXX_FLAGS ${CMAKE_C_FLAGS})
     
@@ -88,7 +116,7 @@ IF(MSVC)
     ENDIF()
     
 ELSE()
-    IF(CMAKE_COMPILER_IS_GNUCC)
+    IF(CXX17 AND CMAKE_COMPILER_IS_GNUCC)
         IF(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.2)
             message(FATAL_ERROR "Your GCC is too old. GCC 8.2 or newer is required")
         ENDIF()
@@ -155,9 +183,9 @@ IF (GCC32)
 ENDIF()   
 ENDIF()
 
-string(TIMESTAMP BUILD_YEAR "%Y")
-add_definitions(-DBUILD_YEAR="${BUILD_YEAR}")
-add_definitions(-DUSE_CXX17)
+IF (CXX17)
+    add_definitions(-DUSE_CXX17)
+ENDIF()
 
 add_executable(
     bdelta
@@ -171,14 +199,43 @@ add_executable(
     ${BPATCH_SOURCES}
 )
 
-IF (NOT MSVC)
-    SET (
-        LIBS
+add_library (
+    libbdelta-static
+    STATIC
 
-        stdc++fs
-        pthread
-        dl
-    )
+    ${BDELTA_STATIC_LIB_SOURCES}
+)
+
+add_library (
+    libbdelta-shared
+    SHARED
+
+    ${BDELTA_SHARED_LIB_SOURCES}
+)
+
+SET_TARGET_PROPERTIES(
+    libbdelta-static
+    PROPERTIES PREFIX      ""
+               OUTPUT_NAME libbdelta
+               PDB_NAME    libbdelta-static
+)
+
+SET_TARGET_PROPERTIES(
+    libbdelta-shared
+    PROPERTIES PREFIX      ""
+               OUTPUT_NAME libbdelta
+               PDB_NAME    libbdelta-shared
+)
+
+IF (NOT MSVC)
+    IF (CXX17)
+        SET (
+            LIBS
+
+            stdc++fs
+        )
+    ENDIF()
+
     target_link_libraries(bdelta ${LIBS})
     target_link_libraries(bpatch ${LIBS})
 ENDIF()
