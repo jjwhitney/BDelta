@@ -100,7 +100,7 @@ struct Checksums_Instance
 };
 
 
-static unsigned match_buf_forward(const void *buf1, const void *buf2, unsigned num)
+static inline unsigned match_buf_forward(const void *buf1, const void *buf2, unsigned num)
 { 
     unsigned i = 0;
     while (i < num && ((const Token*)buf1)[i] == ((const Token*)buf2)[i])
@@ -108,7 +108,7 @@ static unsigned match_buf_forward(const void *buf1, const void *buf2, unsigned n
     return i;
 }
 
-static unsigned match_buf_backward(const void *buf1, const void *buf2, unsigned num)
+static inline unsigned match_buf_backward(const void *buf1, const void *buf2, unsigned num)
 { 
     int i = num;
     do
@@ -401,7 +401,7 @@ static void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMa
         numblocks += unused[i].num;
     numblocks /= blocksize;
 
-    bdelta_pass_2_htable.resize(std::max((unsigned)2, roundUpPowerOf2(numblocks)));
+    bdelta_pass_2_htable.resize(std::max(2u, roundUpPowerOf2(numblocks)));
     bdelta_pass_2_hchecksums.resize(numblocks + 2);
 
     Checksums_Instance h(blocksize, bdelta_pass_2_htable.size(), bdelta_pass_2_htable.data(), bdelta_pass_2_hchecksums.data());
@@ -579,7 +579,7 @@ void bdelta_getMatch(BDelta_Instance *b, unsigned matchNum, unsigned *p1, unsign
     *num = accessplace->num;
 }
 
-inline int bdelta_getError(BDelta_Instance *instance) 
+int bdelta_getError(BDelta_Instance *instance) 
 {
     return instance->errorcode;
 }
