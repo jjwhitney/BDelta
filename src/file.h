@@ -9,6 +9,7 @@
 #ifdef USE_CXX17
 #include <filesystem>
 #endif // USE_CXX17
+#include <memory>
 #include <stdio.h>
 #include <system_error>
 #include <type_traits>
@@ -93,22 +94,17 @@ static inline uint64_t getLenOfFile(const T& fname)
 
 #else
     
-static bool fileExists(const char * fname)
+static inline bool fileExists(const char * fname)
 {
-    FILE *f = fopen(fname, "rb");
-    bool exists = (f != nullptr);
-    if (exists) 
-        fclose(f);
-    return exists;
+    std::unique_ptr<FILE, int(*)(FILE*)> f(fopen(fname, "rb"), fclose);
+    return (bool)f;
 }
 
-static unsigned getLenOfFile(const char * fname)
+static inline unsigned getLenOfFile(const char * fname)
 {
-    FILE *f = fopen(fname, "rb");
-    fseek(f, 0, SEEK_END);
-    unsigned len = ftell(f);
-    fclose(f);
-    return len;
+    std::unique_ptr<FILE, int(*)(FILE*)> f(fopen(fname, "rb"), fclose);
+    fseek(f.get(), 0, SEEK_END);
+    return ftell(f.get());
 }
 
 #endif // USE_CXX17
