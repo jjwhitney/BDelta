@@ -23,27 +23,26 @@ typedef uint32_t Token;
 #include "bdelta.h"
 #include "checksum.h"
 
-
 const bool verbose = false;
 struct checksum_entry 
 {
     Hash::Value cksum; //Rolling checksums
     unsigned loc;
-    checksum_entry() {}
-    checksum_entry(Hash::Value _cksum, unsigned _loc) : cksum(_cksum), loc(_loc) {}
+    checksum_entry() = default;
+    checksum_entry(Hash::Value _cksum, unsigned _loc) noexcept : cksum(_cksum), loc(_loc) {}
 };
 
 struct Range 
 {
     unsigned p, num;
-    Range() {}
-    Range(unsigned _p, unsigned _num) : p(_p), num(_num) {}
+    Range() = default;
+    Range(unsigned _p, unsigned _num) noexcept : p(_p), num(_num) {}
 };
 
 struct Match 
 {
     unsigned p1, p2, num;
-    Match(unsigned _p1, unsigned _p2, unsigned _num) : p1(_p1), p2(_p2), num(_num) {}
+    Match(unsigned _p1, unsigned _p2, unsigned _num) noexcept : p1(_p1), p2(_p2), num(_num) {}
 };
 
 struct _BDelta_Instance 
@@ -57,7 +56,7 @@ struct _BDelta_Instance
     int errorcode;
 
     _BDelta_Instance(bdelta_readCallback _cb, void * _handle1, void * _handle2,
-                     unsigned _data1_size, unsigned _data2_size)
+                     unsigned _data1_size, unsigned _data2_size) noexcept
         : cb(_cb), handle1(_handle1), handle2(_handle2)
         , data1_size(_data1_size), data2_size(_data2_size)
         , access_int(-1), errorcode(0)
@@ -81,7 +80,7 @@ struct Checksums_Instance
     checksum_entry * const checksums;  // Sorted list of all checksums
     unsigned numchecksums;
 
-    Checksums_Instance(unsigned _blocksize, unsigned _htablesize, checksum_entry ** _htable, checksum_entry * _checksums)
+    Checksums_Instance(unsigned _blocksize, unsigned _htablesize, checksum_entry ** _htable, checksum_entry * _checksums) noexcept
         : blocksize(_blocksize), htablesize(_htablesize), htable(_htable)
         , checksums(_checksums), numchecksums(0)
     {
@@ -89,18 +88,18 @@ struct Checksums_Instance
     }
     
     template <class T>
-    void add(T&& ck) 
+    void add(T&& ck) noexcept
     {
         checksums[numchecksums++] = std::forward<T>(ck);
     }
-    unsigned tableIndex(Hash::Value hashValue) 
+    unsigned tableIndex(Hash::Value hashValue) noexcept
     {
         return Hash::modulo(hashValue, htablesize);
     }
 };
 
 
-static inline unsigned match_buf_forward(const void *buf1, const void *buf2, unsigned num)
+static inline unsigned match_buf_forward(const void *buf1, const void *buf2, unsigned num) noexcept
 { 
     unsigned i = 0;
     while (i < num && ((const Token*)buf1)[i] == ((const Token*)buf2)[i])
@@ -108,7 +107,7 @@ static inline unsigned match_buf_forward(const void *buf1, const void *buf2, uns
     return i;
 }
 
-static inline unsigned match_buf_backward(const void *buf1, const void *buf2, unsigned num)
+static inline unsigned match_buf_backward(const void *buf1, const void *buf2, unsigned num) noexcept
 { 
     int i = num;
     do
@@ -157,14 +156,14 @@ static unsigned match_backward(BDelta_Instance *b, unsigned p1, unsigned p2, uns
 
 // Iterator helper function
 template <class T>
-static inline T bdelta_next(T i) {return ++i;}
+static inline T bdelta_next(T i) noexcept { return ++i; }
 
 struct UnusedRange 
 {
     unsigned p, num;
     std::list<Match>::iterator ml, mr;
-    UnusedRange() {}
-    UnusedRange(unsigned _p, unsigned _num, std::list<Match>::iterator _ml, std::list<Match>::iterator _mr) 
+    UnusedRange() = default;
+    UnusedRange(unsigned _p, unsigned _num, std::list<Match>::iterator _ml, std::list<Match>::iterator _mr) noexcept
         : p(_p), num(_num), ml(_ml), mr(_mr)
     {}
 };
@@ -173,7 +172,7 @@ struct UnusedRange
 class comparep
 {
 public:
-    bool operator()(UnusedRange r1, UnusedRange r2)
+    bool operator()(UnusedRange r1, UnusedRange r2) noexcept
     {
         return ((r1.p != r2.p) ? (r1.p < r2.p) : (r1.num > r2.num));
     }
@@ -182,7 +181,7 @@ public:
 class comparemrp2
 {
 public:
-    bool operator()(UnusedRange r1, UnusedRange r2)
+    bool operator()(UnusedRange r1, UnusedRange r2) noexcept
     {
         return ((r1.mr->p2 != r2.mr->p2)? (r1.mr->p2 < r2.mr->p2) : (r1.mr->num > r2.mr->num));
     }
@@ -191,7 +190,7 @@ public:
 class compareMatchP2
 {
 public:
-    bool operator()(Match r1, Match r2)
+    bool operator()(Match r1, Match r2) noexcept
     {
         return ((r1.p2 != r2.p2) ? (r1.p2 < r2.p2) : (r1.num > r2.num));
     }
@@ -209,7 +208,7 @@ static void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num,
 }
 
 template<class T>
-T absoluteDifference(T a, T b) 
+T absoluteDifference(T a, T b) noexcept
 {
     return std::max(a, b) - std::min(a, b);
 }
@@ -315,8 +314,8 @@ static void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minM
 struct Checksums_Compare 
 {
     Checksums_Instance &ci;
-    explicit Checksums_Compare(Checksums_Instance &h) : ci(h) {}
-    bool operator() (checksum_entry c1, checksum_entry c2) 
+    explicit Checksums_Compare(Checksums_Instance &h) noexcept : ci(h) {}
+    bool operator() (checksum_entry c1, checksum_entry c2) noexcept
     {
         unsigned ti1 = ci.tableIndex(c1.cksum), ti2 = ci.tableIndex(c2.cksum);
         if (ti1 == ti2)
@@ -338,7 +337,7 @@ static thread_local std::vector<UnusedRange>     bdelta_pass_unused;
 
 BDelta_Instance *bdelta_init_alg(unsigned data1_size, unsigned data2_size,
                                  bdelta_readCallback cb, void *handle1, void *handle2,
-                                 unsigned tokenSize) 
+                                 unsigned tokenSize)
 {
     if (tokenSize != sizeof(Token)) 
     {
@@ -361,7 +360,7 @@ BDelta_Instance *bdelta_init_alg(unsigned data1_size, unsigned data2_size,
     return b;
 }
 
-void bdelta_done_alg(BDelta_Instance *b) 
+void bdelta_done_alg(BDelta_Instance *b)
 {
     b->matches.clear();
     delete b;
@@ -384,7 +383,7 @@ void bdelta_done_alg(BDelta_Instance *b)
 
 
 // Adapted from http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
-static unsigned roundUpPowerOf2(unsigned v)
+static unsigned roundUpPowerOf2(unsigned v) noexcept
 {
     --v;
     for (int i = 1; i <= 16; i *= 2)
@@ -448,7 +447,7 @@ static void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMa
     }
 }
 
-void bdelta_swap_inputs(BDelta_Instance *b) 
+void bdelta_swap_inputs(BDelta_Instance *b) noexcept
 {
     for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l)
         std::swap(l->p1, l->p2);
@@ -457,7 +456,7 @@ void bdelta_swap_inputs(BDelta_Instance *b)
     b->matches.sort(compareMatchP2());
 }
 
-void bdelta_clean_matches(BDelta_Instance *b, unsigned flags) 
+void bdelta_clean_matches(BDelta_Instance *b, unsigned flags)
 {
     std::list<Match>::iterator nextL = b->matches.begin();
     if (nextL == b->matches.end()) 
@@ -483,14 +482,14 @@ void bdelta_clean_matches(BDelta_Instance *b, unsigned flags)
     }
 }
 
-void bdelta_showMatches(BDelta_Instance *b)
+void bdelta_showMatches(BDelta_Instance *b) noexcept
 {
     for (std::list<Match>::iterator l = b->matches.begin(); l != b->matches.end(); ++l)
         printf("(%d, %d, %d), ", l->p1, l->p2, l->num);
-    printf ("\n\n");
+    printf("\n\n");
 }
 
-static void get_unused_blocks(UnusedRange *unused, unsigned *numunusedptr)
+static void get_unused_blocks(UnusedRange *unused, unsigned *numunusedptr) noexcept
 {
     unsigned nextStartPos = 0;
     for (unsigned i = 1; i < *numunusedptr; ++i) 
@@ -501,9 +500,9 @@ static void get_unused_blocks(UnusedRange *unused, unsigned *numunusedptr)
     }
 }
 
-inline bool isZeroMatch(Match &m) { return m.num == 0; }
+inline bool isZeroMatch(Match &m) noexcept { return m.num == 0; }
 
-void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned maxHoleSize, unsigned flags) 
+void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned maxHoleSize, unsigned flags)
 {
     // Place an empty Match at beginning so we can assume there's a Match to the left of every hole.
     b->matches.emplace_front(0, 0, 0);
@@ -550,12 +549,12 @@ void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, 
     b->matches.pop_back();
 }
 
-unsigned bdelta_numMatches(BDelta_Instance *b) 
+unsigned bdelta_numMatches(BDelta_Instance *b) noexcept
 {
     return b->matches.size();
 }
 
-void bdelta_getMatch(BDelta_Instance *b, unsigned matchNum, unsigned *p1, unsigned *p2, unsigned *num) 
+void bdelta_getMatch(BDelta_Instance *b, unsigned matchNum, unsigned *p1, unsigned *p2, unsigned *num) noexcept
 {
     int &access_int = b->access_int;
     std::list<Match>::iterator &accessplace = b->accessplace;
@@ -579,7 +578,7 @@ void bdelta_getMatch(BDelta_Instance *b, unsigned matchNum, unsigned *p1, unsign
     *num = accessplace->num;
 }
 
-int bdelta_getError(BDelta_Instance *instance) 
+int bdelta_getError(BDelta_Instance *instance) noexcept
 {
     return instance->errorcode;
 }

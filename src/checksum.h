@@ -8,38 +8,38 @@
 struct Hash 
 {
     typedef uint64_t Value;
-    Hash() {}
-    Hash(const Token * buf, unsigned blocksize) 
+    Hash() = default;
+    Hash(const Token * buf, unsigned blocksize) noexcept
     {
         value = 0;
         for (unsigned num = 0; num < blocksize; ++num)
             advance_add(buf[num]);
         oldCoefficient = powHash(multiplyAmount, blocksize);
     }
-    void advance(Token out, Token in) 
+    void advance(Token out, Token in) noexcept
     {
         advance_remove(out);
         advance_add(in);
     }
-    static unsigned modulo(Value hash, unsigned d) 
+    static unsigned modulo(Value hash, unsigned d) noexcept
     {
         // Assumes d is power of 2.
         return (hash & (d - 1));
     }
-    Value getValue() { return value >> extraProcBits; }
+    Value getValue() noexcept { return value >> extraProcBits; }
 private:
     typedef uint64_t ProcValue;
-    static const unsigned extraProcBits = (sizeof(ProcValue) - sizeof(Value)) * 8;
+    static constexpr unsigned extraProcBits = (sizeof(ProcValue) - sizeof(Value)) * 8;
 
-    static const ProcValue multiplyAmount = ((1ll << extraProcBits) | 181);
+    static constexpr ProcValue multiplyAmount = ((1ll << extraProcBits) | 181);
     ProcValue oldCoefficient, value;
 
-    void advance_add(Token in) 
+    void advance_add(Token in) noexcept
     {
         value = (value + in) * multiplyAmount;
     }
-    void advance_remove(Token out) { value -= out * oldCoefficient; }
-    static ProcValue powHash(ProcValue x, unsigned y) 
+    void advance_remove(Token out) noexcept { value -= out * oldCoefficient; }
+    static ProcValue powHash(ProcValue x, unsigned y) noexcept
     {
         ProcValue res = 1;
         while (y) 

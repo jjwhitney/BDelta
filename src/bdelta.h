@@ -4,6 +4,8 @@
 
 #ifdef __cplusplus
 extern "C" {
+#else
+#define noexcept
 #endif // __cplusplus
 
 typedef struct _BDelta_Instance BDelta_Instance;
@@ -20,16 +22,15 @@ void bdelta_done_alg(BDelta_Instance *b);
 
 void bdelta_pass(BDelta_Instance *b, unsigned blockSize, unsigned minMatchSize, unsigned maxHoleSize, unsigned flags);
 
-void bdelta_swap_inputs(BDelta_Instance *b);
+void bdelta_swap_inputs(BDelta_Instance *b) noexcept;
 void bdelta_clean_matches(BDelta_Instance *b, unsigned flags);
 
-unsigned bdelta_numMatches(BDelta_Instance *b);
+unsigned bdelta_numMatches(BDelta_Instance *b) noexcept;
 
-void bdelta_getMatch(BDelta_Instance *b, unsigned matchNum,
-                     unsigned *p1, unsigned *p2, unsigned *num);
+void bdelta_getMatch(BDelta_Instance *b, unsigned matchNum, unsigned *p1, unsigned *p2, unsigned *num) noexcept;
 
-int bdelta_getError(BDelta_Instance *b);
-void bdelta_showMatches(BDelta_Instance *b);
+int bdelta_getError(BDelta_Instance *b) noexcept;
+void bdelta_showMatches(BDelta_Instance *b) noexcept;
 
 // Flags for bdelta_pass()
 #define BDELTA_GLOBAL 1
