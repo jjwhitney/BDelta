@@ -16,63 +16,69 @@
 
 static constexpr size_t MAX_IO_BLOCK_SIZE = (1024 * 1024);
 
-void fread_fixed(FILE *f, void * _buf, unsigned num_bytes);
-void fwrite_fixed(FILE *f, const void * _buf, unsigned num_bytes);
-
+bool fread_fixed(FILE *f, void * _buf, unsigned num_bytes) noexcept;
+bool fwrite_fixed(FILE *f, const void * _buf, unsigned num_bytes) noexcept;
 
 #ifdef BIG_ENDIAN_HOST
+template <typename T>
+struct HalfType;
 
-static inline unsigned read_word(FILE *f)
+template <>
+struct HalfType<uint16_t>
 {
-    unsigned char b, b2;
-    fread_fixed(f, &b, 1);
-    fread_fixed(f, &b2, 1);
-    return (b2 << 8) + b;
+    typedef uint8_t type;
+};
+
+template <>
+struct HalfType<uint32_t>
+{
+    typedef uint16_t type;
+};
+
+template <typename T>
+static inline bool read_value(FILE* f, T* value)
+{
+    typename HalfType::type low, high;
+    if (!(fread_fixed(f, &low, sizeof(low)) && fread_fixed(f, &high, sizeof(high))))
+        return false;
+    constexpr int shift = sizeof(low) * 8;
+    *value = ((high << shift) + low);
+    return true;
 }
 
-static inline unsigned read_dword(FILE *f)
+template <> static inline bool read_value(FILE* f, uint8_t* value);
 {
-    unsigned low = read_word(f);
-    return (read_word(f) << 16) + low;
+    return fread_fixed(f, value, sizeof(*value));
 }
 
-static inline void write_word(FILE *f, unsigned number)
+template <typename T>
+static inline bool write_value(FILE* f, T* value)
 {
-    unsigned char b = number & 255,
-                  b2 = number >> 8;
-    fwrite_fixed(f, &b, 1);
-    fwrite_fixed(f, &b2, 1);
+    constexpr int shift = sizeof(HalfType::type) * 8;
+    constexpr int mask = ((1 << shift) - 1);
+
+    typename HalfType::type low = (*value & mask), high = (*value >> 8);
+    return (fwrite_fixed(f, &low, sizeof(low)) && fwrite_fixed(f, &high, sizeof(high)));
 }
 
-static inline void write_dword(FILE *f, unsigned number)
+template <> static inline bool write_value(FILE * f, uint8_t* value);
 {
-    write_word(f, number & 65535);
-    write_word(f, number >> 16);
+    return write_fixed(f, value, sizeof(*value));
 }
 
 #else
 
 template <typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-static inline T read_type(FILE *f)
+static inline bool read_value(FILE* f, T* value)
 {
-    T result = 0;
-    fread_fixed(f, &result, sizeof(result));
-    return result;
+    return fread_fixed(f, value, sizeof(*value));
 }
-
-#define read_byte(f)  read_type<uint8_t>((f))
-#define read_word(f)  read_type<uint16_t>((f))
-#define read_dword(f) read_type<uint32_t>((f))
 
 template <typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
-static inline void write_type(FILE *f, T number)
+static inline bool write_value(FILE* f, T* value)
 {
-    fwrite_fixed(f, &number, sizeof(number));
+    return fwrite_fixed(f, value, sizeof(*value));
 }
-
-#define write_byte(f, v)  write_type<uint8_t>((f), (v))
-#define write_word(f, v)  write_type<uint16_t>((f), (v))
-#define write_dword(f, v) write_type<uint32_t>((f), (v))
 
 #endif // BIG_ENDIAN
 

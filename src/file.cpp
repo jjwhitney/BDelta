@@ -12,7 +12,7 @@
 #define fread_unlocked  _fread_nolock
 #endif // _MSC_VER
 
-void fread_fixed(FILE *f, void * _buf, unsigned num_bytes)
+bool fread_fixed(FILE *f, void * _buf, unsigned num_bytes) noexcept
 {
     char * buf = (char *)_buf;
 
@@ -22,18 +22,16 @@ void fread_fixed(FILE *f, void * _buf, unsigned num_bytes)
 
         size_t r = fread_unlocked(buf, 1, block_size, f);
         if (r != block_size)
-        {
-            const size_t BUFFER_SIZE = 512;
-            std::unique_ptr<char[]> error_message_buffer(new char[BUFFER_SIZE]);
-            snprintf(error_message_buffer.get(), BUFFER_SIZE, "read error: fread_fixed(block_size=%u) != %u", block_size, (unsigned)r);
-            throw std::system_error(EIO, std::generic_category(), std::string(error_message_buffer.get()));
-        }
+            return false;
+
         buf       += block_size;
         num_bytes -= block_size;
     }
+
+    return true;
 }
 
-void fwrite_fixed(FILE *f, const void * _buf, unsigned num_bytes)
+bool fwrite_fixed(FILE *f, const void * _buf, unsigned num_bytes) noexcept
 {
     const char * buf = (const char *)_buf;
 
@@ -43,13 +41,11 @@ void fwrite_fixed(FILE *f, const void * _buf, unsigned num_bytes)
 
         size_t r = fwrite_unlocked(buf, 1, block_size, f);
         if (r != block_size)
-        {
-            const size_t BUFFER_SIZE = 512;
-            std::unique_ptr<char[]> error_message_buffer(new char[BUFFER_SIZE]);
-            snprintf(error_message_buffer.get(), BUFFER_SIZE, "write error: fwrite_fixed(num_bytes=%u) != %u", block_size, (unsigned)r);
-            throw std::system_error(EIO, std::generic_category(), std::string(error_message_buffer.get()));
-        }
+            return false;
+
         buf       += block_size;
         num_bytes -= block_size;
     }
+
+    return true;
 }

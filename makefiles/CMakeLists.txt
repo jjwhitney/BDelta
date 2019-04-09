@@ -30,6 +30,7 @@ set (BDELTA_SOURCES
     ../src/bdelta.h
     ../src/checksum.h
     ../src/libbdelta.cpp
+    ../src/noexcept.h
 )
 
 set (BPATCH_SOURCES
@@ -44,6 +45,7 @@ set (BDELTA_STATIC_LIB_SOURCES
     ../src/bdelta.h
     ../src/checksum.h
     ../src/libbdelta.cpp
+    ../src/noexcept.h
 )
 
 set (BDELTA_SHARED_LIB_SOURCES 
@@ -87,6 +89,8 @@ IF(MSVC)
                         /MP    # multiprocessor compilation
                         /utf-8 # utf-8 source & exec
                         /GF    # eliminate duplicate strings
+                        
+                        /EHs-c- # disable c++ exceptions
                         )
     
     IF (CXX17)
@@ -96,6 +100,7 @@ IF(MSVC)
     SET(CMAKE_CXX_FLAGS ${CMAKE_C_FLAGS})
     
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+    add_definitions(-D_HAS_EXCEPTIONS=0)
     
     SET(CMAKE_EXE_LINKER_FLAGS "/LARGEADDRESSAWARE /SUBSYSTEM:CONSOLE")
     SET(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG /OPT:REF,ICF /DEBUG")
@@ -157,12 +162,12 @@ ELSE()
                         -Werror=reorder
                         -Werror=declaration-after-statement
                         -Werror=missing-format-attribute
-                        -funsigned-char)
+                        -funsigned-char
+                        
+                        -fno-exceptions
+                        )
     
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=delete-non-virtual-dtor -U__STRICT_ANSI__ -fno-operator-names")
-    IF (CXX17)
-        SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
-    ENDIF()
+    SET(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -Werror=delete-non-virtual-dtor -U__STRICT_ANSI__ -fno-operator-names -std=c++17")
     SET(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -Wimplicit-int -Wmissing-prototypes -Werror=implicit-int")
 
     SET(CMAKE_CXX_FLAGS_RELEASE  "-O2 -s -fno-rtti -DNDEBUG")
