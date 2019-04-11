@@ -1,6 +1,7 @@
 #ifndef __NOEXCEPT_H__
 #define __NOEXCEPT_H__
 
+#include <iterator>
 #include <memory>
 #include <new>
 
@@ -26,7 +27,7 @@ struct Construct
             new (new_p + i) T(std::move(old_p[i]));
 
         for (; i < new_size; ++i)
-            new(p + i) T();
+            new(new_p + i) T();
     }
 };
 
@@ -194,9 +195,10 @@ public:
     class iterator
     {
     public:
-        typedef T value_type;
+        typedef T  value_type;
         typedef T* pointer;
         typedef T& reference;
+        typedef void difference_type;
         typedef std::bidirectional_iterator_tag iterator_category;
 
         iterator() noexcept : m_node(nullptr)

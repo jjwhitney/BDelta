@@ -8,7 +8,6 @@
 struct Hash 
 {
     typedef uint64_t Value;
-    Hash() = default;
     Hash(const Token * buf, unsigned blocksize) noexcept
     {
         value = 0;

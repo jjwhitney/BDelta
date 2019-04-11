@@ -37,9 +37,9 @@ static void my_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSiz
     case BDELTA_WRITE_ERROR:
         printf(fatal_write);
         exit(3);
+    default:
+        bdelta_clean_matches(b, BDELTA_REMOVE_OVERLAP);
     }
-
-    bdelta_clean_matches(b, BDELTA_REMOVE_OVERLAP);
 }
 
 #define check_write_result(result) if(!(result)) { printf(fatal_read); return 3; }

@@ -28,14 +28,12 @@ struct checksum_entry
 {
     Hash::Value cksum; //Rolling checksums
     unsigned loc;
-    checksum_entry() = default;
     checksum_entry(Hash::Value _cksum, unsigned _loc) noexcept : cksum(_cksum), loc(_loc) {}
 };
 
 struct Range 
 {
     unsigned p, num;
-    Range() = default;
     Range(unsigned _p, unsigned _num) noexcept : p(_p), num(_num) {}
 };
 
@@ -55,7 +53,7 @@ struct UnusedRange
 {
     unsigned p, num;
     MatchListIterator ml, mr;
-    UnusedRange() = default;
+    UnusedRange() noexcept : p(0), num(0) {}
     UnusedRange(unsigned _p, unsigned _num, const MatchListIterator& _ml, const MatchListIterator& _mr) noexcept
         : p(_p), num(_num), ml(_ml), mr(_mr)
     {}
@@ -134,7 +132,6 @@ struct Checksums_Instance
         return Hash::modulo(hashValue, htablesize);
     }
 };
-
 
 static inline unsigned match_buf_forward(const void *buf1, const void *buf2, unsigned num) noexcept
 { 
@@ -247,7 +244,6 @@ T absoluteDifference(T a, T b) noexcept
     return std::max(a, b) - std::min(a, b);
 }
 
-
 static void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minMatchSize, unsigned start, unsigned end, unsigned place, MatchListIterator iterPlace) noexcept
 {
     const unsigned blocksize = h->blocksize;
@@ -264,7 +260,7 @@ static void findMatches(BDelta_Instance *b, Checksums_Instance *h, unsigned minM
     unsigned processMatchesPos = 0;
     const Token *inbuf = b->read2(buf1, start, blocksize),
                 *outbuf = nullptr;
-    Hash hash = Hash(inbuf, blocksize);
+    Hash hash(inbuf, blocksize);
     unsigned buf_loc = blocksize;
     for (unsigned j = start + blocksize; ; ++j) 
     {
@@ -397,7 +393,6 @@ void bdelta_done_alg(BDelta_Instance *b) noexcept
     free(b);
 }
 
-
 // Adapted from http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
 static unsigned roundUpPowerOf2(unsigned v) noexcept
 {
@@ -527,7 +522,7 @@ static void get_unused_blocks(UnusedRange *unused, unsigned *numunusedptr) noexc
     {
         unsigned startPos = nextStartPos;
         nextStartPos = std::max(startPos, unused[i].p + unused[i].num);
-        unused[i] = UnusedRange(startPos, unused[i].p < startPos ? 0 : unused[i].p - startPos, unused[i-1].mr, unused[i].mr);
+        unused[i].set(startPos, unused[i].p < startPos ? 0 : unused[i].p - startPos, unused[i-1].mr, unused[i].mr);
     }
 }
 

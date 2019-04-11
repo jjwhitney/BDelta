@@ -65,7 +65,6 @@ IF(MSVC)
     ENDIF()
     add_compile_options(/Zi   # pdb
                         /W4   # warning level 4
-                        /EHsc # exceptions: sync
                         /J    # use unsigned char
                         /Gd   # use cdecl
                         # treat warnings as errors
@@ -89,14 +88,13 @@ IF(MSVC)
                         /MP    # multiprocessor compilation
                         /utf-8 # utf-8 source & exec
                         /GF    # eliminate duplicate strings
-                        
-                        /EHs-c- # disable c++ exceptions
                         )
     
     IF (CXX17)
         add_compile_options(/std:c++17)
     ENDIF()
     
+    string(REPLACE "/EHsc" "/EHs-c-" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}") # disable c++ exceptions
     SET(CMAKE_CXX_FLAGS ${CMAKE_C_FLAGS})
     
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
