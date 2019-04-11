@@ -31,7 +31,7 @@ static bool copy_bytes_to_file(FILE *infile, FILE *outfile, unsigned numleft)
         }
         if (fwrite_unlocked(buf.get(), 1, numread, outfile) != numread)
         {
-            printf("Could not write temporary data.  Possibly out of space\n");
+            printf("Could not write temporary data. Possibly out of space\n");
             return false;
         }
         numleft -= numread;
@@ -79,7 +79,7 @@ int main(int argc, char **argv)
         printf("unsupported file pointer size\n");
         return 1;
     }
-    uint32_t size1, size2, nummatches;
+    uint32_t size1 = 0, size2 = 0, nummatches = 0;
     bool result = read_value(patchfile.get(), &size1) 
                && read_value(patchfile.get(), &size2) 
                && read_value(patchfile.get(), &nummatches);

@@ -1,4 +1,4 @@
-LIBRARY bdelta
+LIBRARY libbdelta
 EXPORTS
 	bdelta_init_alg
 	bdelta_done_alg
