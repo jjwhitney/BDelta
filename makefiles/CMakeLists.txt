@@ -163,12 +163,13 @@ ELSE()
                         -funsigned-char
                         
                         -fno-exceptions
+                        -fno-rtti
                         )
     
     SET(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -Werror=delete-non-virtual-dtor -U__STRICT_ANSI__ -fno-operator-names -std=c++17")
     SET(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -Wimplicit-int -Wmissing-prototypes -Werror=implicit-int")
 
-    SET(CMAKE_CXX_FLAGS_RELEASE  "-O2 -s -fno-rtti -DNDEBUG")
+    SET(CMAKE_CXX_FLAGS_RELEASE  "-O2 -s -DNDEBUG -fomit-frame-pointer")
     SET(CMAKE_C_FLAGS_RELEASE    ${CMAKE_CXX_FLAGS_RELEASE})
     SET(CMAKE_CXX_FLAGS_DEBUG    "-O0 -g -D_DEBUG -D__DEBUG__ -DDEBUG_LEVEL=3 -D_GLIBCXX_DEBUG -D_GLIBCXX_DEBUG_PEDANTIC")
     SET(CMAKE_C_FLAGS_DEBUG      ${CMAKE_CXX_FLAGS_DEBUG})

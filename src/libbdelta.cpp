@@ -198,22 +198,17 @@ static unsigned match_backward(BDelta_Instance *b, unsigned p1, unsigned p2, uns
 template <class T>
 static inline T bdelta_next(T i) noexcept { return ++i; }
 
-class compareMatchP2
+const auto compareMatchP2 = [](const Match& r1, const Match& r2) noexcept
 {
-public:
-    bool operator()(Match r1, Match r2) noexcept
-    {
-        return ((r1.p2 != r2.p2) ? (r1.p2 < r2.p2) : (r1.num > r2.num));
-    }
+    return ((r1.p2 != r2.p2) ? (r1.p2 < r2.p2) : (r1.num > r2.num));
 };
 
 static void addMatch(BDelta_Instance *b, unsigned p1, unsigned p2, unsigned num, MatchListIterator place) noexcept
 {
     Match newMatch = Match(p1, p2, num);
-    compareMatchP2 comp;
-    while (place != b->matches.begin() && !comp(*place, newMatch))
+    while (place != b->matches.begin() && !compareMatchP2(*place, newMatch))
         --place;
-    while (place != b->matches.end() && comp(*place, newMatch))
+    while (place != b->matches.end() && compareMatchP2(*place, newMatch))
         ++place;
     if (b->matches.insert(place, newMatch) == nullptr)
         b->errorcode = BDELTA_MEM_ERROR;
@@ -383,7 +378,7 @@ static unsigned roundUpPowerOf2(unsigned v) noexcept
     return (v + 1);
 }
 
-static void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, UnusedRange *unused, unsigned numunused, UnusedRange *unused2, unsigned numunused2) noexcept 
+static void bdelta_pass_2(BDelta_Instance *b, uint32_t blocksize, uint32_t minMatchSize, UnusedRange *unused, uint32_t numunused, UnusedRange *unused2) noexcept
 {
     b->access_int = -1;
 
@@ -443,7 +438,7 @@ static void bdelta_pass_2(BDelta_Instance *b, unsigned blocksize, unsigned minMa
     for (int i = h.numchecksums - 1; i >= 0; --i)
         h.htable[h.tableIndex(h.checksums[i].cksum)] = &h.checksums[i];
 
-    for (unsigned i = 0; i < numunused2; ++i)
+    for (unsigned i = 0; i < numunused; ++i)
     {
         if (unused2[i].num >= blocksize)
         {
@@ -460,7 +455,7 @@ void bdelta_swap_inputs(BDelta_Instance *b) noexcept
         std::swap(m.p1, m.p2);
     std::swap(b->data1_size, b->data2_size);
     std::swap(b->handle1, b->handle2);
-    b->matches.sort(compareMatchP2());
+    b->matches.sort(compareMatchP2);
 }
 
 void bdelta_clean_matches(BDelta_Instance *b, unsigned flags) noexcept
@@ -496,10 +491,10 @@ void bdelta_showMatches(BDelta_Instance *b) noexcept
     printf("\n\n");
 }
 
-static void get_unused_blocks(UnusedRange *unused, unsigned numunusedptr) noexcept
+static void get_unused_blocks(UnusedRange *unused, uint32_t numunused) noexcept
 {
     unsigned nextStartPos = 0;
-    for (unsigned i = 1; i < numunusedptr; ++i) 
+    for (unsigned i = 1; i < numunused; ++i) 
     {
         unsigned startPos = nextStartPos;
         nextStartPos = std::max(startPos, unused[i].p + unused[i].num);
@@ -507,7 +502,7 @@ static void get_unused_blocks(UnusedRange *unused, unsigned numunusedptr) noexce
     }
 }
 
-void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, unsigned maxHoleSize, unsigned flags) noexcept
+void bdelta_pass(BDelta_Instance *b, uint32_t blocksize, uint32_t minMatchSize, uint32_t maxHoleSize, uint32_t flags) noexcept
 {
     // Place an empty Match at beginning so we can assume there's a Match to the left of every hole.
     if (b->matches.emplace_front(0, 0, 0) == nullptr)
@@ -532,31 +527,31 @@ void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, 
     UnusedRange *unused = b->bdelta_pass_unused.get(),
                 *unused2 = unused + BUFFER_SIZE;
 
-    unsigned numunused = 0, numunused2 = 0;
+    uint32_t numunused = 0;
     for (auto l = b->matches.begin(); l != b->matches.end(); ++l)
     {
-        unused[numunused++].set(l->p1, l->num, l, l);
-        unused2[numunused2++].set(l->p2, l->num, l, l);
+        unused[numunused].set(l->p1, l->num, l, l);
+        unused2[numunused++].set(l->p2, l->num, l, l);
     }
 
     // Leave empty match at beginning
-    std::sort(unused + 1, unused + numunused, [](UnusedRange r1, UnusedRange r2) noexcept
+    std::sort(unused + 1, unused + numunused, [](const UnusedRange& r1, const UnusedRange& r2) noexcept
     {
         return ((r1.p != r2.p) ? (r1.p < r2.p) : (r1.num > r2.num));
     }); 
 
     get_unused_blocks(unused,  numunused);
-    get_unused_blocks(unused2, numunused2);
+    get_unused_blocks(unused2, numunused);
 
     if ((flags & BDELTA_GLOBAL) != 0)
     {
-        bdelta_pass_2(b, blocksize, minMatchSize, unused, numunused, unused2, numunused2);
+        bdelta_pass_2(b, blocksize, minMatchSize, unused, numunused, unused2);
         if (b->errorcode != BDELTA_OK)
             return;
     }  
-    else 
+    else
     {
-        std::sort(unused + 1, unused + numunused, [](UnusedRange r1, UnusedRange r2) noexcept
+        std::sort(unused + 1, unused + numunused, [](const UnusedRange& r1, const UnusedRange& r2) noexcept
         {
             return ((r1.mr->p2 != r2.mr->p2) ? (r1.mr->p2 < r2.mr->p2) : (r1.mr->num > r2.mr->num));
         });
@@ -567,7 +562,7 @@ void bdelta_pass(BDelta_Instance *b, unsigned blocksize, unsigned minMatchSize, 
                 if (!maxHoleSize || (u1.num <= maxHoleSize && u2.num <= maxHoleSize))
                     if ((flags & BDELTA_SIDES_ORDERED) == 0 || (bdelta_next(u1.ml) == u1.mr && bdelta_next(u2.ml) == u2.mr))
                     {
-                        bdelta_pass_2(b, blocksize, minMatchSize, &u1, 1, &u2, 1);
+                        bdelta_pass_2(b, blocksize, minMatchSize, &u1, 1, &u2);
                         if (b->errorcode != BDELTA_OK)
                             return;
                     }    

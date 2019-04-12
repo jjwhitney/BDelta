@@ -10,7 +10,10 @@
 #ifdef _MSC_VER
 #define fwrite_unlocked _fwrite_nolock
 #define fread_unlocked  _fread_nolock
-#endif // _MSC_VER
+#elif __MINGW32__
+#define fwrite_unlocked fwrite
+#define fread_unlocked  fread
+#endif 
 
 bool fread_fixed(FILE *f, void * _buf, unsigned num_bytes) noexcept
 {
