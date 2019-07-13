@@ -5,6 +5,34 @@
 #include <memory>
 #include <new>
 
+#ifdef _WIN32
+#define NOMINMAX
+#include <Windows.h>
+
+static const HANDLE hDefaultHeap = GetProcessHeap();
+
+inline void * bdelta_malloc(size_t size)
+{
+    return HeapAlloc(hDefaultHeap, 0, size);
+}
+
+inline void bdelta_free(void * p)
+{
+    HeapFree(hDefaultHeap, 0, p);
+}
+
+inline bool inplace_realloc(void * old_p, size_t new_size)
+{
+    return (HeapReAlloc(hDefaultHeap, HEAP_REALLOC_IN_PLACE_ONLY, old_p, new_size) != nullptr);
+}
+#else
+#define bdelta_malloc malloc
+#define bdelta_free free
+
+// TODO: implement it for linux
+constexpr bool inplace_realloc(void * /*old_p*/, size_t /*new_size*/) { return false; }
+#endif _WIN32
+
 template <class T>
 struct Construct
 {
@@ -73,7 +101,7 @@ public:
     T * get() const noexcept { return m_data; }
 
     NoThrowMemoryStorage(size_t size) noexcept
-        : m_data((T*)malloc(size * sizeof(T)))
+        : m_data((T*)bdelta_malloc(size * sizeof(T)))
     {
         if (m_data != nullptr)
         {
@@ -93,7 +121,7 @@ public:
         if (m_data != nullptr)
         {
             m_constructor.destruct(m_data, m_capacity);
-            free(m_data);
+            bdelta_free(m_data);
         }  
     }
 
@@ -101,30 +129,39 @@ public:
     {
         if (m_capacity >= size)
         {
+            if (size > m_size)
+                m_constructor.construct(m_data + m_size, size - m_size);
+            else if (size < m_size)
+                m_constructor.destruct(m_data + size, m_size - size);
             m_size = size;
             return true;
         }
 
-        T * new_data = (T*)malloc(size * sizeof(T));
-        if (new_data == nullptr)
+        if (m_data != nullptr && inplace_realloc(m_data, size))
+            m_constructor.construct(m_data + m_capacity, size - m_capacity);
+        else
         {
-            if (m_data != nullptr)
+            T * new_data = (T*)bdelta_malloc(size * sizeof(T));
+            if (new_data == nullptr)
             {
-                m_constructor.destruct(m_data, m_size);
-                free(m_data);
-                m_size = 0;
-                m_capacity = 0;
+                if (m_data != nullptr)
+                {
+                    m_constructor.destruct(m_data, m_size);
+                    bdelta_free(m_data);
+                    m_size = 0;
+                    m_capacity = 0;
+                }
+
+                return false;
             }
 
-            return false;
+            if (m_data != nullptr)
+                m_reallocator.realloc(m_data, m_size, new_data, size, m_constructor);
+            else
+                m_constructor.construct(new_data, size);
+
+            m_data = new_data;
         }
-
-        if (m_data != nullptr)
-            m_reallocator.realloc(m_data, m_size, new_data, size, m_constructor);
-        else
-            m_constructor.construct(new_data, size);
-
-        m_data = new_data;
         m_size = size;
         m_capacity = size;
 
@@ -418,7 +455,7 @@ public:
 
         void * block = nullptr;
         while(m_blocks_stack.pop(block))
-            free(block);
+            bdelta_free(block);
 
         m_size = 0;
         m_head = nullptr;
@@ -445,10 +482,10 @@ protected:
             return nullptr;
 
         size_t count = m_allocator_stack.capacity();
-        Node * block = (Node*)malloc(sizeof(Node) * count);
+        Node * block = (Node*)bdelta_malloc(sizeof(Node) * count);
         if (!m_blocks_stack.push(block))
         {
-            free(block);
+            bdelta_free(block);
             return nullptr;
         }
 
