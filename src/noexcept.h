@@ -412,7 +412,7 @@ public:
         {
             Node * next = p->next;
             p->data.T::~T();
-            //deallocate(p);
+            // we dont't need deallocate() because m_blocks_stack will free memory
             p = next;
         }
 
