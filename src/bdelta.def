@@ -1,0 +1,11 @@
+LIBRARY libbdelta
+EXPORTS
+	bdelta_init_alg
+	bdelta_done_alg
+	bdelta_pass
+	bdelta_swap_inputs
+	bdelta_clean_matches
+	bdelta_numMatches
+	bdelta_getMatch
+	bdelta_getError
+	bdelta_showMatches

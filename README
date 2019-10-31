@@ -34,18 +34,6 @@ is designed to give a great deal of control over each pass. This functionality
 is not well-documented, so contact me if you need help. I hope to add more
 comments to the code in future releases.
 
-
-Other Bindings
-==============
-
-A simple interface for accessing the API with Python is included. This
-interface is kept up-to-date since I do a lot of work in Python these days. To
-istall it, just type "python build.py install" in the root folder. You'll need 
-Cython to build/install, but Cython is not required after installation.
-
-See test/py_bindings.py for a usage example.
-
-
 Delta File Format
 =================
 

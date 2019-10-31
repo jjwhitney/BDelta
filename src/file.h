@@ -2,85 +2,117 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#ifndef __FILE_H__
+#define __FILE_H__
+
+#include <inttypes.h>
+#ifdef USE_CXX17
+#include <filesystem>
+#endif // USE_CXX17
+#include <memory>
 #include <stdio.h>
+#include <system_error>
+#include <type_traits>
 
-#define MAX_IO_BLOCK_SIZE (1024 * 1024)
+static constexpr size_t MAX_IO_BLOCK_SIZE = (1024 * 1024);
 
-void fread_fixed(FILE *f, void * _buf, unsigned num_bytes) {
-	char * buf = (char *)_buf;
+bool fread_fixed(FILE *f, void * _buf, unsigned num_bytes) noexcept;
+bool fwrite_fixed(FILE *f, const void * _buf, unsigned num_bytes) noexcept;
 
-	while (num_bytes != 0)
-	{
-		unsigned block_size = num_bytes;
-		if (block_size > MAX_IO_BLOCK_SIZE) block_size = MAX_IO_BLOCK_SIZE;
+#ifdef BIG_ENDIAN_HOST
+template <typename T>
+struct HalfType;
 
-		size_t r = fread(buf, 1, block_size, f);
-		if (r != block_size)
-		{
-			static char read_error_message[128];
-			sprintf (read_error_message, "read error: fread_fixed(block_size=%u) != %u", block_size, (unsigned)r);
-			throw read_error_message;
-		}
-		buf       += block_size;
-		num_bytes -= block_size;
-	}
+template <>
+struct HalfType<uint16_t>
+{
+    typedef uint8_t type;
+};
+
+template <>
+struct HalfType<uint32_t>
+{
+    typedef uint16_t type;
+};
+
+template <typename T>
+static inline bool read_value(FILE* f, T* value)
+{
+    typename HalfType::type low, high;
+    if (!(fread_fixed(f, &low, sizeof(low)) && fread_fixed(f, &high, sizeof(high))))
+        return false;
+    constexpr int shift = sizeof(low) * 8;
+    *value = ((high << shift) + low);
+    return true;
 }
 
-void fwrite_fixed(FILE *f, const void * _buf, unsigned num_bytes) {
-	const char * buf = (const char *)_buf;
-
-	while (num_bytes != 0)
-	{
-		unsigned block_size = num_bytes;
-		if (block_size > MAX_IO_BLOCK_SIZE) block_size = MAX_IO_BLOCK_SIZE;
-
-		size_t r = fwrite(buf, 1, block_size, f);
-		if (r != block_size)
-		{
-			static char write_error_message[128];
-			sprintf (write_error_message, "write error: fwrite_fixed(num_bytes=%u) != %u", block_size, (unsigned)r);
-			throw write_error_message;
-		}
-		buf       += block_size;
-		num_bytes -= block_size;
-	}
+template <> static inline bool read_value(FILE* f, uint8_t* value);
+{
+    return fread_fixed(f, value, sizeof(*value));
 }
 
-unsigned read_word(FILE *f) {
-	unsigned char b, b2;
-	fread_fixed(f, &b, 1);
-	fread_fixed(f, &b2, 1);
-	return (b2 << 8) + b;
+template <typename T>
+static inline bool write_value(FILE* f, T* value)
+{
+    constexpr int shift = sizeof(HalfType::type) * 8;
+    constexpr int mask = ((1 << shift) - 1);
+
+    typename HalfType::type low = (*value & mask), high = (*value >> 8);
+    return (fwrite_fixed(f, &low, sizeof(low)) && fwrite_fixed(f, &high, sizeof(high)));
 }
 
-unsigned read_dword(FILE *f) {
-	unsigned low = read_word(f);
-	return (read_word(f) << 16) + low;
+template <> static inline bool write_value(FILE * f, uint8_t* value);
+{
+    return write_fixed(f, value, sizeof(*value));
 }
 
-void write_word(FILE *f, unsigned number) {
-	unsigned char b = number & 255,
-	              b2 = number >> 8;
-	fwrite_fixed(f, &b, 1);
-	fwrite_fixed(f, &b2, 1);
+#else
+
+template <typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
+static inline bool read_value(FILE* f, T* value)
+{
+    return fread_fixed(f, value, sizeof(*value));
 }
 
-void write_dword(FILE *f, unsigned number) {
-	write_word(f, number & 65535);
-	write_word(f, number >> 16);
+template <typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
+static inline bool write_value(FILE* f, T* value)
+{
+    return fwrite_fixed(f, value, sizeof(*value));
 }
 
-bool fileExists(char *fname) {
-	FILE *f = fopen(fname, "rb");
-	bool exists = (f != NULL);
-	if (exists) fclose(f);
-	return exists;
+#endif // BIG_ENDIAN
+
+#ifdef USE_CXX17
+
+template <class T>
+static inline bool fileExists(const T& fname)
+{
+    std::error_code ec;
+    return std::filesystem::exists(fname, ec);
 }
 
-unsigned getLenOfFile(char *fname) {
-	FILE *f = fopen(fname, "rb");
-	fseek(f, 0, SEEK_END);
-	unsigned len = ftell(f);
-	fclose(f);
-	return len;
+template <class T>
+static inline uint64_t getLenOfFile(const T& fname)
+{
+    std::error_code ec;
+    return std::filesystem::file_size(fname, ec);
 }
+
+#else
+    
+static inline bool fileExists(const char * fname)
+{
+    std::unique_ptr<FILE, int(*)(FILE*)> f(fopen(fname, "rb"), fclose);
+    return (bool)f;
+}
+
+static inline unsigned getLenOfFile(const char * fname)
+{
+    std::unique_ptr<FILE, int(*)(FILE*)> f(fopen(fname, "rb"), fclose);
+    fseek(f.get(), 0, SEEK_END);
+    return ftell(f.get());
+}
+
+#endif // USE_CXX17
+
+#endif // __FILE_H__
